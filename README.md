@@ -64,24 +64,22 @@ arbitrary keys to the dictionary to store additional information about an option
     allows to input _"water"_ in order to search for the color _Ocean_ as shown below:
 
     <img src="data/keyword-search.jpg" height="300px">
-- `default_option`: The default option to select. By default, no option is
-    selected.
+- `default_option`: The default option to select. By default, no option is selected.
 - `placeholder`: The placeholder text that is shown when no option is selected.
 - `search_placeholder`: The placeholder text for the search input field.
 - `size`: Relative size of the component. Allowed values are "1", "2", and "3".
-- `weight`: The weight of the text. Allowed values are "none", "light", 
-    "regular", "medium", and "bold".
-- `radius`: The edge radius of the component. Allowed values are "none",
-    "small", "medium", "large", and "full".
-- `height`: The height of the component menu. Can be given as a CSS value
-    like "10rem" or "100%".
+- `weight`: The weight of the text. Allowed values are "none", "light", "regular", 
+    "medium", and "bold".
+- `radius`: The edge radius of the component. Allowed values are "none", "small", 
+    "medium", "large", and "full".
+- `height`: The height of the component menu. Can be given as a CSS value like "10rem" 
+    or "100%".
 - `padding`: The padding around the border of the select menu.
-- `indent`: The indentation of the select menu. If `align` is chosen to be
-    "center", the indentation is applied horizontally to both sides and
-    therefore acts as padding. Otherwise, it is applied to one side only
-    and works as indentation.
-- `align`: The alignment of the options. Allowed values are "left",
-    "center", and "right".
+- `indent`: The indentation of the select menu. If `align` is chosen to be "center", the 
+    indentation is applied horizontally to both sides and therefore acts as padding. 
+    Otherwise, it is applied to one side only and works as indentation.
+- `align`: The alignment of the options. Allowed values are "left", "center", and 
+    "right".
 - `create_option`: The option dictionary to create a new entry. If `create_option` is 
     None, the feature is deactivated. If the option is a dictionary, it determines the 
     `value` and `label` of the create option. You may either provide a static text
@@ -96,14 +94,12 @@ arbitrary keys to the dictionary to store additional information about an option
     )
     ```
     The `label` given in the example above would be displayed as _Create new "Apple"_ if 
-    the search phrase is _"Apple"_. Regarding the `value` key, you can use any 
-    value you like.   
+    the search phrase is _"Apple"_. Regarding the `value` key, you can use any value you 
+    like.   
 - `modal`: Directly passed on to PopoverRoot. If true, interaction on screen 
-    readers with other elements is disabled and only popover content 
-    is visible.
+    readers with other elements is disabled and only popover content is visible.
 - `on_select`: Event handler that is called when the user selects an option. Note
-    that the event handler is called even if the user selects the same value
-    as before.
+    that the event handler is called even if the user selects the same value as before.
 
 ## Installation
 The component has been tested without activating [Tailwind](https://tailwindcss.com/) 
