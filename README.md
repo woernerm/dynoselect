@@ -1,6 +1,6 @@
 # Dynoselect
 
-This is select component for [Reflex](https://reflex.dev) that comes with a search bar 
+This is a select component for [Reflex](https://reflex.dev) that comes with a search bar 
 and optionally allows the user to create non-existing options:
 
 <img src="data/demo.gif" height="400px">
