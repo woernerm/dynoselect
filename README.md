@@ -55,38 +55,37 @@ arbitrary keys to the dictionary to store additional information about an option
     `label` key is displayed to the user while the `value` key can be used for internal
     identifiers. Optionally, one can provide a `keywords` key to include alternative 
     phrases that are included in the search but not displayed to the user. This is 
-    intended to improve the search tolerance so that the user can find an option even 
+    intended to improve the search tolerance so that users can find options even 
     if synonyms are used. You may provide keywords either as a string or as a list
     of strings. For example, the option
     ```py
     {"value": "ocean", "label": "Ocean", "keywords": ["blue", "water"]}
     ```
-    allows to input _"water"_ to search for a color named _Ocean_ as shown below:
+    allows to input _"water"_ in order to search for the color _Ocean_ as shown below:
 
     <img src="data/keyword-search.jpg" height="300px">
 - `default_option`: The default option to select. By default, no option is
     selected.
-- `placeholder`: The placeholder text for the select component that is shown
-    when no option is selected.
+- `placeholder`: The placeholder text that is shown when no option is selected.
 - `search_placeholder`: The placeholder text for the search input field.
-    size: Relative size of the component. Allowed values are "1", "2", and "3".
+- `size`: Relative size of the component. Allowed values are "1", "2", and "3".
 - `weight`: The weight of the text. Allowed values are "none", "light", 
     "regular", "medium", and "bold".
-- `radius`: The radius of the select component. Allowed values are "none",
+- `radius`: The edge radius of the component. Allowed values are "none",
     "small", "medium", "large", and "full".
-- `height`: The height of the select component. Can be given as a CSS value
+- `height`: The height of the component menu. Can be given as a CSS value
     like "10rem" or "100%".
-- `padding`: The padding around the border of the select component.
-- `indent`: The indentation of the select component. If align is chosen to be
+- `padding`: The padding around the border of the select menu.
+- `indent`: The indentation of the select menu. If `align` is chosen to be
     "center", the indentation is applied horizontally to both sides and
     therefore acts as padding. Otherwise, it is applied to one side only
-    and works as normal indentation.
+    and works as indentation.
 - `align`: The alignment of the options. Allowed values are "left",
     "center", and "right".
-- `create_option`: The option to create a new entry. If this option is None,
-    the feature is deactivated. If the option is a dictionary, it determines the 
+- `create_option`: The option dictionary to create a new entry. If `create_option` is 
+    None, the feature is deactivated. If the option is a dictionary, it determines the 
     `value` and `label` of the create option. You may either provide a static text
-    or refer to the currently entered search phrase by using "{}" as placeholder in the
+    or refer to the current search phrase by using "{}" as placeholder in the
     `label`. For example:
     ```py
     dynoselect(
