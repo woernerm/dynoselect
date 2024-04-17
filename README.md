@@ -39,7 +39,7 @@ app = rx.App()
 app.add_page(index)
 ```
 
-Options are given as a list of dictionaries. Each dictionary must contain a label
+Options are given as a list of dictionaries. Each dictionary must contain a `label`
 and a `value` key with strings as values. The `label` is displayed to the user while
 the value key can be used for internal identifiers. Optionally, one can provide a 
 `keywords` key to include alternative phrases that are included in the search but
