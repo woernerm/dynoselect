@@ -10,6 +10,8 @@ from reflex.components.radix.themes.components.text_field import LiteralTextFiel
 from reflex.event import EventHandler, EventSpec
 from reflex.vars import BaseVar
 
+from .options import TimezoneOptions
+
 LiteralIndent = Literal[
     "0", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "5", "6", "7", "8", "9", "10"
 ]
@@ -57,6 +59,8 @@ class Dynoselect(rx.ComponentState):
     _OPT_VALUE = "value" # The key for the option's value.
     _OPT_KEYWORDS = "keywords" # Comma separated words to include in the search. 
     _SEARCH_DELIMITER = " " # The delimiter used to separate search words.
+
+    _COLOR_PLACEHOLDER = "var(--gray-a10)"
 
     @classmethod
     def chevron_down(cls):
@@ -122,6 +126,13 @@ class Dynoselect(rx.ComponentState):
         if isinstance(keywords, (tuple,list,)):
             keywords = cls._SEARCH_DELIMITER.join(list(keywords))
         return label + cls._SEARCH_DELIMITER + keywords
+    
+    @classmethod
+    def selected_text(cls, text: str, **props) -> rx.Component:
+        return rx.text(
+            text, 
+            class_name="rt-SelectTriggerInner", weight=props.get("weight", "regular")
+        )
 
     @classmethod
     def get_component(
@@ -179,11 +190,10 @@ class Dynoselect(rx.ComponentState):
             bn = rx.button(child, display="inline", variant="solid", size=size, **props)
             return rx.popover.close(bn)
 
-        def text_placeholder(label: str) -> rx.Component:
-            return rx.text(label or "", color="var(--gray-a10)", weight=weight)
-    
-        def text_selection(label: str) -> rx.Component:
-            return rx.text(label, class_name="rt-SelectTriggerInner", weight=weight)
+        def text_placeholder(label: rx.Component | str) -> rx.Component:
+            if isinstance(label, str):
+                return rx.text(label or "", color=cls._COLOR_PLACEHOLDER, weight=weight)
+            return label
         
         def hoverable(child, index: int, **props) -> rx.Component:
             hv = dict(on_mouse_over=lambda *x: cls.set_hover(index), **props)
@@ -235,7 +245,9 @@ class Dynoselect(rx.ComponentState):
                     rx.cond(
                         cls.selected[cls._OPT_LABEL] == "",
                         text_placeholder(placeholder),
-                        text_selection(f"{cls.selected[cls._OPT_LABEL]}"),
+                        cls.selected_text(
+                            f"{cls.selected[cls._OPT_LABEL]}", weight=weight
+                        ),
                     ),
                     
                     cls.chevron_down(),
@@ -352,6 +364,66 @@ def dynoselect(
         indent=indent,
         align=align,
         create_option=create_option,
+        modal=modal,
+        on_select=on_select,
+    )
+
+
+
+class Dynotimezone(Dynoselect):
+
+    _ICON_SIZE = 16
+    _KEY_PLACEHOLDER = "placeholder"
+
+    @classmethod
+    def selected_text(cls, text: str, **props) -> rx.Component:
+        return rx.flex(
+            rx.icon("globe", size=cls._ICON_SIZE, color=cls._COLOR_PLACEHOLDER),
+            rx.text(text, color=cls._COLOR_PLACEHOLDER),
+            direction="row",
+            spacing="2",
+            align="center",
+        )
+    
+    @classmethod
+    def get_component(cls, locale: str, **props):
+        options = TimezoneOptions(locale)
+        props[cls._KEY_PLACEHOLDER] = cls.selected_text(
+            props.get(cls._KEY_PLACEHOLDER, "")
+        )
+            
+        return super().get_component(options, **props, create_option=None)
+        
+
+def dynotimezone(
+        locale: str,
+        default_option: Dict[str, str] = None, 
+        placeholder: str | None = None,
+        search_placeholder: str | None = None,
+        size: LiteralTextFieldSize = "2",
+        weight: LiteralTextWeight = "regular",
+        radius: LiteralRadius | None = None,
+        height: str = "20rem",
+        padding: str = "2",
+        indent: LiteralIndent = "6",
+        align: str = "left",
+        modal: bool = False,
+        on_select: Optional[callable] = None,
+)-> rx.Component:
+    """Create a timezone select component. """
+
+    return Dynotimezone.create(
+        locale=locale,
+        default_option=default_option,
+        placeholder=placeholder,
+        search_placeholder=search_placeholder,
+        size=size,
+        weight=weight,
+        radius=radius,
+        height=height,
+        padding=padding,
+        indent=indent,
+        align=align,
         modal=modal,
         on_select=on_select,
     )

@@ -1,4 +1,3 @@
-from argparse import ArgumentParser
 from babel.core import Locale
 from utils import request
 from json import loads
@@ -45,4 +44,4 @@ def get_locale_table(locale: "Locale" = None) -> dict[str, str]:
     
     table = {e.strip(): display_name(e) for e in LocaleRegistry()}
     table = {k: v for k, v in table.items() if v is not None}
-    return table
+    return [{"value": k, "label": v} for k, v in table.items()]
