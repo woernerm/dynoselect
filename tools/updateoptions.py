@@ -20,4 +20,4 @@ def write_timezone_options(locale: str, maxcities: int):
     loc = locale.replace("-", "_")
     write_data(str(TIMEZONE_FILE).format(loc), TimezoneOptions(locale, maxcities))
 
-write_timezone_options("de-DE", 5)
+write_timezone_options("en-US", 5)

@@ -1,20 +1,62 @@
 """Reflex custom component Dynoselect."""
 
-from typing import List, Dict, Literal, Optional
-
+from typing import List, Dict, Literal, Optional, Union
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+from itertools import chain
 import reflex as rx
 
 from reflex.components.radix.themes.typography.base import LiteralTextWeight
 from reflex.components.radix.themes.base import LiteralRadius
 from reflex.components.radix.themes.components.text_field import LiteralTextFieldSize
-from reflex.event import EventHandler, EventSpec
-from reflex.vars import BaseVar
 
+from .utils import chevron_down
 from .options import TimezoneOptions
 
 LiteralIndent = Literal[
     "0", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "5", "6", "7", "8", "9", "10"
 ]
+
+class Option(dict):
+    KEYS = ["label", "value", "keywords"]
+
+    _SEARCH_DELIMITER = " " # The delimiter used to separate search words.
+
+    def __init__(self, label: str = "", value: str = "", keywords: List[str] = []):
+        super().__init__(
+            label=label, 
+            value=value, 
+            keywords=self._SEARCH_DELIMITER.join(keywords)
+        )
+
+    def _hasattr(self, key):
+        if key not in self.KEYS:
+            raise AttributeError(f'{self.__class__.__name__} has no attribute "{key}"')
+
+    def __getattr__(self, attr):
+        self._hasattr(attr)
+        return self.get(attr, "")
+    
+    def __setattr__(self, attr, value):
+        self._hasattr(attr)
+        self[attr] = value
+
+    def clone(self, **kwargs):
+        tmp = Option(**self)
+        for key, value in kwargs.items():
+            setattr(tmp, key, value)
+        return tmp
+
+    def format(self, *args, **kwargs):
+        value = self.value.format(*args, **kwargs)
+        label = self.label.format(*args, **kwargs)
+        keywords = self.keywords.format(*args, **kwargs)
+        return Option(label=label, value=value, keywords=keywords)
+
+         
+
+
+
 
 
 class Dynoselect(rx.ComponentState):
@@ -55,84 +97,40 @@ class Dynoselect(rx.ComponentState):
     the dictionary to store additional information about an option.
     """
 
-    _OPT_LABEL = "label" # The key for the option's label.
-    _OPT_VALUE = "value" # The key for the option's value.
-    _OPT_KEYWORDS = "keywords" # Comma separated words to include in the search. 
-    _SEARCH_DELIMITER = " " # The delimiter used to separate search words.
+    options: list[dict[str, str]]
+    """ The options available to the user. """
+
+    _KEY_LABEL = "label"
+    _KEY_KEYWORDS = "keywords"
+    _KEY_VALUE = "value"
 
     _COLOR_PLACEHOLDER = "var(--gray-a10)"
 
-    @classmethod
-    def chevron_down(cls):
-        """ Display the chevron down icon.
-              
-        The chevron down Lucide icon looks slightly different than the Radix one.
-        Therefore, the Radix icon is used instead.        
-        """
-        
-        return rx.html(
-            '<svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor" '
-            'xmlns="http://www.w3.org/2000/svg" class="rt-SelectIcon" '
-            'aria-hidden="true">'
-            '<path d="M0.135232 3.15803C0.324102 2.95657 0.640521 2.94637 0.841971 '
-            '3.13523L4.5 6.56464L8.158 3.13523C8.3595 2.94637 8.6759 2.95657 8.8648 '
-            '3.15803C9.0536 3.35949 9.0434 3.67591 8.842 3.86477L4.84197 '
-            '7.6148C4.64964 7.7951 4.35036 7.7951 4.15803 7.6148L0.158031 '
-            '3.86477C-0.0434285 3.67591 -0.0536285 3.35949 0.135232 3.15803Z">'
-            '</path></svg>'
-        )
+    _DELIMITER = " "
     
     @classmethod
-    def _get_keywords(cls, opts: list[dict[str, str]] | dict[str, str]) -> rx.Var[str]:
-        """ Return a searchable Reflex variable based on the given options."""
-        if isinstance(opts, list):
-            data = [cls.get_search_data(e) for e in opts]
-            return cls._tovar(" ".join(data))
-        else:
-            return cls._tovar(cls.get_search_data(opts))
-    
-    @classmethod
-    def _tovar(cls, string: str) -> rx.Var:
-        """Convert a string to a reflex variable."""
-        return rx.Var.create('"' + string + '"')
-    
-    @classmethod
-    def search(cls, keywords: rx.Var[str]) -> rx.Var[bool]:
+    def client_search(cls, option) -> rx.Var[bool]:
         """ Search for the search phrase in the given keywords.
         
         Returns:
             A Boolean reflex variable that is true if the search phrase is found.
-        """
-        return keywords.lower().contains(cls.search_phrase.lower())
+        """        
+        return (
+            option[cls._KEY_LABEL].lower().contains(cls.search_phrase.lower()) |
+            option[cls._KEY_VALUE].lower().contains(cls.search_phrase.lower()) |
+            option[cls._KEY_KEYWORDS].lower().contains(cls.search_phrase.lower())
+        )
 
-    @classmethod
-    def get_search_data(cls, option: dict[str, str]) -> str:
-        """ Compute a searchable string based on the given option.
-        
-        This method is useful to implement a client-side search functionality.
-        Basically, the string returned by this method is searched for occurrences of
-        the user's search phrase. If the search phrase is found, the option is 
-        displayed. Otherwise, it is hidden. The string returned by this method is never
-        displayed to the user. Therefore, one does not have to worry about the format
-        of the string.
-
-        The default implementation returns the option's label and keywords.
-
-        Args:
-            option: A dictionary containing the option's values.
-        """
-        label = option.get(cls._OPT_LABEL, "")
-        keywords = option.get(cls._OPT_KEYWORDS, "")
-        if isinstance(keywords, (tuple,list,)):
-            keywords = cls._SEARCH_DELIMITER.join(list(keywords))
-        return label + cls._SEARCH_DELIMITER + keywords
+    @rx.cached_var
+    def chained_options(self) -> str:
+        return self._DELIMITER.join(
+            chain(*[list(opt.values()) for opt in self.options])
+        )
     
     @classmethod
-    def selected_text(cls, text: str, **props) -> rx.Component:
-        return rx.text(
-            text, 
-            class_name="rt-SelectTriggerInner", weight=props.get("weight", "regular")
-        )
+    def inner_text(cls, text: str, **props) -> rx.Component:
+        weight = props.get("weight", "regular")
+        return rx.text(text, class_name="rt-SelectTriggerInner", weight=weight)
 
     @classmethod
     def get_component(
@@ -152,105 +150,74 @@ class Dynoselect(rx.ComponentState):
         modal: bool,
         on_select: Optional[callable] = None,
         ) -> rx.Component:
-        """ Create the component. See dynoselect() function for more information."""
-        # Select entries are either a text box or a solid button. They must have the
-        # exact same height to avoid flicker effects when moving the mouse over the
-        # entries. Therefore, this variable maps button height to text height.
-        btn_2_text_height = {"1": "6", "2": "8", "3": "10", "4": "12"}
-        indent_direction = {"center": "x", "left": "l", "right": "r"}
-        style = dict(
-            radius=radius,
-            align="center", # This is always necessary to avoid flicker effects.
-            padding="0", # Required for align="left" to align box and button texts. 
-            class_name=f"h-{btn_2_text_height[size]} w-full",
-        )
+        """ Create the component. See dynoselect() function for more information.
+        """
 
-        def get_handler(option: dict[str, str]) -> EventHandler:
-            """Return an event handler that sets the selected option."""
-            if on_select is None:
-                return lambda *x: [cls.set_selected(option)]
-            return lambda *x: [cls.set_selected(option), on_select(option)] 
-        
-        def text(label: str):
-            return rx.text(
-                label, 
-                trim="both", 
-                align=align,
-                size=size, 
-                weight=weight, 
-                class_name=f"p{indent_direction[align]}-{indent} w-full"
-            )
+        opt_create = Option(**(create_option or {}))
 
-        def item(child, **props):
-            """ An item that is currently not hovered over. """
-            return rx.flex(child, **props)
-
-        def hitem(child, **props):
-            """ An item that is currently hovered over."""
-            bn = rx.button(child, display="inline", variant="solid", size=size, **props)
-            return rx.popover.close(bn)
-
-        def text_placeholder(label: rx.Component | str) -> rx.Component:
-            if isinstance(label, str):
-                return rx.text(label or "", color=cls._COLOR_PLACEHOLDER, weight=weight)
-            return label
+        cls.__fields__["selected"].default = default_option or cls._DEFAULT
+        cls.__fields__["options"].default = [Option(**opt) for opt in options]
         
         def hoverable(child, index: int, **props) -> rx.Component:
             hv = dict(on_mouse_over=lambda *x: cls.set_hover(index), **props)
-            return rx.cond(cls.hover==index, hitem(child, **hv), item(child, **hv)) 
-
-        def create_entry(option: dict[str, str], index: int) -> rx.Component:
-            label = option.get(cls._OPT_LABEL, "").format(cls.search_phrase)
-            opt = dict(**option)
-            opt[cls._OPT_LABEL] = cls.search_phrase
-            entry = hoverable(
-                text(label), 
-                index, 
-                **style, 
-                on_click=get_handler(opt)
-            )
             return rx.cond(
-                # The last option is the one that gets created. So do not search it.
-                cls.search(cls._get_keywords(options[:-1])),
-                rx.fragment(),
-                entry
-            )
+                cls.hover==index, 
+                rx.popover.close(
+                    rx.button(child, display="inline", variant="solid", size=size, **hv)
+                ),
+                rx.flex(child, **hv)
+            ) 
         
-        def normal_entry(option: dict[str, str], index: int) -> rx.Component:
-            txt = option.get(cls._OPT_LABEL, "")
-            return hoverable(
-                text(txt), 
+        def entry(condition, option: dict[str, str], index: int, create: bool = False) -> rx.Component:
+            # Entries are either a text box or a solid button. This mapping ensures they
+            # have the same height to avoid flicker effects when hovering over them.
+            btn_height = {"1": "6", "2": "8", "3": "10", "4": "12"}
+            indent_direction = {"center": "x", "left": "l", "right": "r"}
+            select = opt_create.clone(label=cls.search_phrase) if create else option
+
+            hanlder = (
+                (lambda: cls.set_selected(select))
+                if on_select is None else
+                (lambda: [cls.set_selected(select), on_select(select)])
+            )
+
+            button = hoverable(
+                rx.text(
+                    option[cls._KEY_LABEL], 
+                    trim="both", 
+                    align=align,
+                    size=size, 
+                    weight=weight, 
+                    class_name=f"p{indent_direction[align]}-{indent} w-full"
+                ),
                 index, 
-                **style, 
-                on_click=get_handler(option)
+                radius=radius,
+                align="center", # Avoid flicker effects.
+                padding="0", # To align box and button texts for align="left".
+                class_name=f"h-{btn_height[size]} w-full",
+                on_click=hanlder
             )
-        
-        entries = [
-            rx.cond(
-                # Condition to implement search functionality.
-                cls.search(cls._get_keywords(opt)),
-                normal_entry(opt, i), # Matches search phrase.
-                rx.fragment(), # Does not match search phrase.
-            )            
-            for i, opt in enumerate(options)
-        ]
-        
-        if create_option is not None:
-            options.append(create_option)
-            entries.append(create_entry(options[-1], len(options)-1))
+
+            return rx.cond(condition, button, rx.fragment())
 
         return rx.popover.root(
             rx.popover.trigger(
                 rx.button(
+                    # Show either placeholder or the selected option's label.
                     rx.cond(
-                        cls.selected[cls._OPT_LABEL] == "",
-                        text_placeholder(placeholder),
-                        cls.selected_text(
-                            f"{cls.selected[cls._OPT_LABEL]}", weight=weight
+                        cls.selected[cls._KEY_LABEL] == "",
+                        (   
+                            rx.text(
+                                placeholder or "", 
+                                color=cls._COLOR_PLACEHOLDER, 
+                                weight=weight
+                            ) if isinstance(placeholder, str) else placeholder
+                        ),
+                        cls.inner_text(
+                            f"{cls.selected[cls._KEY_LABEL]}", weight=weight
                         ),
                     ),
-                    
-                    cls.chevron_down(),
+                    chevron_down(),
                     _active={
                         "background-color": "transparent"
                     },
@@ -273,7 +240,18 @@ class Dynoselect(rx.ComponentState):
                     rx.box(
                         rx.scroll_area(
                             rx.flex(
-                                *entries,
+                                rx.foreach(
+                                    cls.options, 
+                                    lambda opt, i: entry(cls.client_search(opt), opt, i)
+                                ),
+                                (
+                                    entry(
+                                        ~cls.chained_options.contains(cls.search_phrase), 
+                                        opt_create.format(cls.search_phrase), 
+                                        cls.options.length(), 
+                                        True
+                                    ) if create_option else rx.fragment()
+                                ),
                                 direction="column",
                                 class_name=f"w-full pr-{padding}",
                             ),
@@ -288,7 +266,6 @@ class Dynoselect(rx.ComponentState):
                 padding="0"
             ),
             modal=modal,
-            on_mount=cls.set_selected(default_option or cls._DEFAULT),
             on_open_change=cls.set_search_phrase(""),
         )
 
@@ -375,8 +352,23 @@ class Dynotimezone(Dynoselect):
     _ICON_SIZE = 16
     _KEY_PLACEHOLDER = "placeholder"
 
+    locale: str = "en-US"
+
+    @rx.cached_var
+    def options(self):
+        """Return the UTC offsets of the selected timezone."""
+        ref = datetime.now().astimezone(timezone.utc)
+        opts = TimezoneOptions(self.locale)
+        for option in opts:
+            tz = ZoneInfo(option["value"])
+            offset_s = ref.astimezone(tz).utcoffset().total_seconds()
+            hours = int(offset_s // 3600)
+            minutes = int(offset_s % 3600 // 60)
+            option["label"] += f"(UTC{hours:+03}:{minutes:02d})" 
+        return opts
+
     @classmethod
-    def selected_text(cls, text: str, **props) -> rx.Component:
+    def inner_text(cls, text: str, **props) -> rx.Component:
         return rx.flex(
             rx.icon("globe", size=cls._ICON_SIZE, color=cls._COLOR_PLACEHOLDER),
             rx.text(text, color=cls._COLOR_PLACEHOLDER),
@@ -387,12 +379,13 @@ class Dynotimezone(Dynoselect):
     
     @classmethod
     def get_component(cls, locale: str, **props):
-        options = TimezoneOptions(locale)
-        props[cls._KEY_PLACEHOLDER] = cls.selected_text(
+        cls.__fields__["locale"].default = locale
+
+        props[cls._KEY_PLACEHOLDER] = cls.inner_text(
             props.get(cls._KEY_PLACEHOLDER, "")
         )
-            
-        return super().get_component(options, **props, create_option=None)
+        
+        return super().get_component(cls.options, **props, create_option=None)
         
 
 def dynotimezone(
