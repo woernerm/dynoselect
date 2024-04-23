@@ -105,8 +105,6 @@ class Dynoselect(rx.ComponentState):
     _KEY_VALUE = "value"
 
     _COLOR_PLACEHOLDER = "var(--gray-a10)"
-
-    _DELIMITER = " "
     
     @classmethod
     def client_search(cls, option) -> rx.Var[bool]:
