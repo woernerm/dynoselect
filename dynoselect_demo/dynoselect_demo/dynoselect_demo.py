@@ -7,7 +7,7 @@ options = [
     {"value": "purple", "label": "Purple"},
     {"value": "green", "label": "Green"},
     {"value": "red", "label": "Red"},
-    {"value": "yellow", "label": "Yellow"},
+    {"value": "strange", "label": "Yellow"},
 ]
 
 class State(rx.State):

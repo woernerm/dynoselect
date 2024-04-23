@@ -1,6 +1,6 @@
 """Reflex custom component Dynoselect."""
 
-from typing import List, Dict, Literal, Optional, Union
+from typing import List, Dict, Literal, Optional, Union, Callable
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from itertools import chain
@@ -108,22 +108,41 @@ class Dynoselect(rx.ComponentState):
     
     @classmethod
     def client_search(cls, option) -> rx.Var[bool]:
-        """ Search for the search phrase in the given keywords.
+        """ Search for the search phrase in the given keywords and label.
+
+        The option's value is not searched to avoid awkward results in case the value
+        has nothing to do with what is displayed to the user. If the value shall be
+        included in the search, it should be added to the option's keywords.
         
         Returns:
             A Boolean reflex variable that is true if the search phrase is found.
         """        
         return (
             option[cls._KEY_LABEL].lower().contains(cls.search_phrase.lower()) |
-            option[cls._KEY_VALUE].lower().contains(cls.search_phrase.lower()) |
             option[cls._KEY_KEYWORDS].lower().contains(cls.search_phrase.lower())
         )
 
     @rx.cached_var
     def chained_options(self) -> str:
+        """ Summarize all search data in a single string.
+        
+        This is used to display a create option if not other results can be found.
+        Although it would be better to count the number of search results and only
+        show the create option if no results are found, it does not seem to be possible 
+        with the current reflex implementation without asking the backend for help.
+        """
+        opts = self.formatted_options
         return Option._SEARCH_DELIMITER.join(
-            chain(*[list(opt.values()) for opt in self.options])
+            chain(*[[e[self._KEY_LABEL], e[self._KEY_KEYWORDS]] for e in opts])
         )
+
+    @rx.cached_var
+    def formatted_options(self) -> list[dict[str, str]]:
+        """ Modify options before display (e.g. to include recent information). 
+        
+        The default implementation will just use the options without modification.
+        """
+        return self.options
     
     @classmethod
     def btntext(cls, child: str, **props) -> rx.Component:
@@ -149,7 +168,7 @@ class Dynoselect(rx.ComponentState):
         align: str,
         create_option: Optional[Dict[str, str]],
         modal: bool,
-        on_select: Optional[callable] = None,
+        on_select: Optional[Callable] = None,
         ) -> rx.Component:
         """ Create the component. See dynoselect() function for more information.
         """
@@ -223,13 +242,13 @@ class Dynoselect(rx.ComponentState):
                 rx.scroll_area(
                     rx.flex(
                         rx.foreach(
-                            cls.options, 
+                            cls.formatted_options, 
                             lambda opt, i: entry(cls.client_search(opt), opt, i)
                         ),
                         entry(
                             ~cls.chained_options.lower().contains(cls.search_phrase.lower()) & create_option, 
                             opt_create.format(cls.search_phrase), 
-                            cls.options.length(), 
+                            cls.formatted_options.length(), 
                             True
                         ),
                         direction="column",
