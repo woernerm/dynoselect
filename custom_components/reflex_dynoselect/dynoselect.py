@@ -89,7 +89,7 @@ class Dynoselect(rx.ComponentState):
     search_phrase: str
     """The search phrase entered by the user."""
 
-    selected: dict[str, str] = _DEFAULT
+    selected: dict[str, str]
     """The currently selected option.
     
     The attribute contains the complete dictionary of the currently selected option. In 
@@ -123,14 +123,17 @@ class Dynoselect(rx.ComponentState):
 
     @rx.cached_var
     def chained_options(self) -> str:
-        return self._DELIMITER.join(
+        return Option._SEARCH_DELIMITER.join(
             chain(*[list(opt.values()) for opt in self.options])
         )
     
     @classmethod
-    def inner_text(cls, text: str, **props) -> rx.Component:
-        weight = props.get("weight", "regular")
-        return rx.text(text, class_name="rt-SelectTriggerInner", weight=weight)
+    def btntext(cls, child: str, **props) -> rx.Component:
+        if child is None or isinstance(child, str):
+            class_name = props.pop("class_name", "rt-SelectTriggerInner")
+            return rx.text(child or "", class_name=class_name, **props)
+        else:
+            return child
 
     @classmethod
     def get_component(
@@ -152,34 +155,27 @@ class Dynoselect(rx.ComponentState):
         ) -> rx.Component:
         """ Create the component. See dynoselect() function for more information.
         """
-
+        size_radius = dict(size=size, radius=radius)
         opt_create = Option(**(create_option or {}))
 
         cls.__fields__["selected"].default = default_option or cls._DEFAULT
         cls.__fields__["options"].default = [Option(**opt) for opt in options]
         
-        def hoverable(child, index: int, **props) -> rx.Component:
-            hv = dict(on_mouse_over=lambda *x: cls.set_hover(index), **props)
-            return rx.cond(
-                cls.hover==index, 
-                rx.popover.close(
-                    rx.button(child, display="inline", variant="solid", size=size, **hv)
-                ),
-                rx.flex(child, **hv)
-            ) 
+        def hoverable(child, idx: int, **props) -> rx.Component:
+            hv = dict(on_mouse_over=lambda: cls.set_hover(idx), **props)
+            btn = rx.button(child, display="inline", variant="solid", size=size, **hv)
+            return rx.cond(cls.hover==idx, rx.popover.close(btn), rx.flex(child, **hv)) 
         
-        def entry(condition, option: dict[str, str], index: int, create: bool = False) -> rx.Component:
+        def entry(cond, option: Option, idx: int, create: bool = False) -> rx.Component:
             # Entries are either a text box or a solid button. This mapping ensures they
             # have the same height to avoid flicker effects when hovering over them.
             btn_height = {"1": "6", "2": "8", "3": "10", "4": "12"}
             indent_direction = {"center": "x", "left": "l", "right": "r"}
             select = opt_create.clone(label=cls.search_phrase) if create else option
 
-            hanlder = (
-                (lambda: cls.set_selected(select))
-                if on_select is None else
-                (lambda: [cls.set_selected(select), on_select(select)])
-            )
+            handler = lambda: cls.set_selected(select)
+            if on_select:
+                handler = lambda: [cls.set_selected(select), on_select(select)]
 
             button = hoverable(
                 rx.text(
@@ -190,15 +186,15 @@ class Dynoselect(rx.ComponentState):
                     weight=weight, 
                     class_name=f"p{indent_direction[align]}-{indent} w-full"
                 ),
-                index, 
+                idx, 
                 radius=radius,
                 align="center", # Avoid flicker effects.
                 padding="0", # To align box and button texts for align="left".
                 class_name=f"h-{btn_height[size]} w-full",
-                on_click=hanlder
+                on_click=handler
             )
 
-            return rx.cond(condition, button, rx.fragment())
+            return rx.cond(cond, button, rx.fragment())
 
         return rx.popover.root(
             rx.popover.trigger(
@@ -206,61 +202,45 @@ class Dynoselect(rx.ComponentState):
                     # Show either placeholder or the selected option's label.
                     rx.cond(
                         cls.selected[cls._KEY_LABEL] == "",
-                        (   
-                            rx.text(
-                                placeholder or "", 
-                                color=cls._COLOR_PLACEHOLDER, 
-                                weight=weight
-                            ) if isinstance(placeholder, str) else placeholder
+                        cls.btntext(
+                            placeholder, color=cls._COLOR_PLACEHOLDER, weight=weight
                         ),
-                        cls.inner_text(
-                            f"{cls.selected[cls._KEY_LABEL]}", weight=weight
-                        ),
+                        cls.btntext(f"{cls.selected[cls._KEY_LABEL]}", weight=weight),
                     ),
                     chevron_down(),
-                    _active={
-                        "background-color": "transparent"
-                    },
+                    _active=dict(background_color="transparent"),
                     class_name="rt-reset rt-SelectTrigger rt-variant-surface",
-                    size=size,
-                    radius=radius,
+                    **size_radius
                 ),
             ),
             rx.popover.content(
                 rx.box(
-                    rx.box(
-                        rx.input(
-                            placeholder=(search_placeholder or ""),
-                            on_change=cls.set_search_phrase,
-                            size=size,
-                            radius=radius,
-                        ),
-                        class_name=f"m-{padding}"
+                    rx.input(
+                        placeholder=(search_placeholder or ""),
+                        on_change=cls.set_search_phrase,
+                        **size_radius
                     ),
-                    rx.box(
-                        rx.scroll_area(
-                            rx.flex(
-                                rx.foreach(
-                                    cls.options, 
-                                    lambda opt, i: entry(cls.client_search(opt), opt, i)
-                                ),
-                                (
-                                    entry(
-                                        ~cls.chained_options.contains(cls.search_phrase), 
-                                        opt_create.format(cls.search_phrase), 
-                                        cls.options.length(), 
-                                        True
-                                    ) if create_option else rx.fragment()
-                                ),
-                                direction="column",
-                                class_name=f"w-full pr-{padding}",
-                            ),
-                            scrollbars="vertical",
-                            class_name=f"pl-{padding} mb-{padding}",
-                            radius=radius,
-                            height=height
+                    class_name=f"m-{padding}"
+                ),
+                rx.scroll_area(
+                    rx.flex(
+                        rx.foreach(
+                            cls.options, 
+                            lambda opt, i: entry(cls.client_search(opt), opt, i)
                         ),
+                        entry(
+                            ~cls.chained_options.lower().contains(cls.search_phrase.lower()) & create_option, 
+                            opt_create.format(cls.search_phrase), 
+                            cls.options.length(), 
+                            True
+                        ),
+                        direction="column",
+                        class_name=f"w-full pr-{padding}",
                     ),
+                    scrollbars="vertical",
+                    class_name=f"pl-{padding} mb-{padding}",
+                    radius=radius,
+                    height=height
                 ),
                 overflow="hidden",
                 padding="0"
@@ -368,7 +348,7 @@ class Dynotimezone(Dynoselect):
         return opts
 
     @classmethod
-    def inner_text(cls, text: str, **props) -> rx.Component:
+    def btntext(cls, text: str, **props) -> rx.Component:
         return rx.flex(
             rx.icon("globe", size=cls._ICON_SIZE, color=cls._COLOR_PLACEHOLDER),
             rx.text(text, color=cls._COLOR_PLACEHOLDER),
@@ -381,7 +361,7 @@ class Dynotimezone(Dynoselect):
     def get_component(cls, locale: str, **props):
         cls.__fields__["locale"].default = locale
 
-        props[cls._KEY_PLACEHOLDER] = cls.inner_text(
+        props[cls._KEY_PLACEHOLDER] = cls.btntext(
             props.get(cls._KEY_PLACEHOLDER, "")
         )
         
