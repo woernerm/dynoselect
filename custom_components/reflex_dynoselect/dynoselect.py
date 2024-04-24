@@ -83,9 +83,6 @@ class Dynoselect(rx.ComponentState):
     _DEFAULT = {"label": "", "value": ""}
     """The default selected option."""
 
-    hover: int
-    """The index of the option currently hovered over."""
-
     search_phrase: str
     """The search phrase entered by the user."""
 
@@ -132,9 +129,10 @@ class Dynoselect(rx.ComponentState):
         with the current reflex implementation without asking the backend for help.
         """
         opts = self.formatted_options
-        return Option._SEARCH_DELIMITER.join(
-            chain(*[[e[self._KEY_LABEL], e[self._KEY_KEYWORDS]] for e in opts])
+        result = Option._SEARCH_DELIMITER.join(
+            chain(*[[e.get(self._KEY_LABEL, ""), e.get(self._KEY_KEYWORDS, "")] for e in opts])
         )
+        return result
 
     @rx.cached_var
     def formatted_options(self) -> list[dict[str, str]]:
@@ -145,7 +143,7 @@ class Dynoselect(rx.ComponentState):
         return self.options
     
     @classmethod
-    def btntext(cls, child: str, **props) -> rx.Component:
+    def btntext(cls, child, **props) -> rx.Component:
         if child is None or isinstance(child, str):
             class_name = props.pop("class_name", "rt-SelectTriggerInner")
             return rx.text(child or "", class_name=class_name, **props)
@@ -166,8 +164,8 @@ class Dynoselect(rx.ComponentState):
         padding: str,
         indent: LiteralIndent,
         align: str,
-        create_option: Optional[Dict[str, str]],
-        modal: bool,
+        create_option: Optional[Dict[str, str]] = None,
+        modal: bool = False,
         on_select: Optional[Callable] = None,
         ) -> rx.Component:
         """ Create the component. See dynoselect() function for more information.
@@ -179,9 +177,15 @@ class Dynoselect(rx.ComponentState):
         cls.__fields__["options"].default = [Option(**opt) for opt in options]
         
         def hoverable(child, idx: int, **props) -> rx.Component:
-            hv = dict(on_mouse_over=lambda: cls.set_hover(idx), **props)
-            btn = rx.button(child, display="inline", variant="solid", size=size, **hv)
-            return rx.cond(cls.hover==idx, rx.popover.close(btn), rx.flex(child, **hv)) 
+            btn = rx.button(
+                child, display="inline", variant="solid", size=size,
+                style={
+                    ":not(:hover)":{"background": "transparent"},
+                    f":not(:hover) > {child.as_}":{"color": rx.color("gray", 12)}
+                },
+                **props
+            )
+            return rx.popover.close(btn)
         
         def entry(cond, option: Option, idx: int, create: bool = False) -> rx.Component:
             # Entries are either a text box or a solid button. This mapping ensures they
@@ -212,7 +216,7 @@ class Dynoselect(rx.ComponentState):
             )
 
             return rx.cond(cond, button, rx.fragment())
-
+        
         return rx.popover.root(
             rx.popover.trigger(
                 rx.button(
@@ -225,7 +229,6 @@ class Dynoselect(rx.ComponentState):
                         cls.btntext(f"{cls.selected[cls._KEY_LABEL]}", weight=weight),
                     ),
                     chevron_down(),
-                    _active=dict(background_color="transparent"),
                     class_name="rt-reset rt-SelectTrigger rt-variant-surface",
                     **size_radius
                 ),
@@ -245,11 +248,13 @@ class Dynoselect(rx.ComponentState):
                             cls.formatted_options, 
                             lambda opt, i: entry(cls.client_search(opt), opt, i)
                         ),
-                        entry(
-                            ~cls.chained_options.lower().contains(cls.search_phrase.lower()) & create_option, 
-                            opt_create.format(cls.search_phrase), 
-                            cls.formatted_options.length(), 
-                            True
+                        (
+                            entry(
+                                ~cls.chained_options.lower().contains(cls.search_phrase.lower()), 
+                                opt_create.format(cls.search_phrase), 
+                                cls.formatted_options.length(), 
+                                True
+                            ) if create_option else rx.fragment()
                         ),
                         direction="column",
                         class_name=f"w-full pr-{padding}",
@@ -349,20 +354,22 @@ class Dynotimezone(Dynoselect):
     _ICON_SIZE = 16
     _KEY_PLACEHOLDER = "placeholder"
 
-    locale: str = "en-US"
-
+    locale: str
+    
     @rx.cached_var
-    def options(self):
-        """Return the UTC offsets of the selected timezone."""
+    def formatted_options(self) -> list[dict[str, str]]:
+        """ Modify options before display (e.g. to include recent information). 
+        
+        The default implementation will just use the options without modification.
+        """
+        print("formatting options")
         ref = datetime.now().astimezone(timezone.utc)
-        opts = TimezoneOptions(self.locale)
-        for option in opts:
-            tz = ZoneInfo(option["value"])
-            offset_s = ref.astimezone(tz).utcoffset().total_seconds()
-            hours = int(offset_s // 3600)
-            minutes = int(offset_s % 3600 // 60)
-            option["label"] += f"(UTC{hours:+03}:{minutes:02d})" 
-        return opts
+        tm = ref.isoformat(sep=" ", timespec="minutes")
+        options = [dict(**opt) for opt in self.options]
+        for opt in options:
+            opt[self._KEY_LABEL] += tm
+
+        return self.options[:2]
 
     @classmethod
     def btntext(cls, text: str, **props) -> rx.Component:
@@ -377,12 +384,12 @@ class Dynotimezone(Dynoselect):
     @classmethod
     def get_component(cls, locale: str, **props):
         cls.__fields__["locale"].default = locale
-
-        props[cls._KEY_PLACEHOLDER] = cls.btntext(
-            props.get(cls._KEY_PLACEHOLDER, "")
-        )
+        opts = TimezoneOptions(locale)
+        # props[cls._KEY_PLACEHOLDER] = cls.btntext(
+        #     props.get(cls._KEY_PLACEHOLDER, "")
+        # )
         
-        return super().get_component(cls.options, **props, create_option=None)
+        return super().get_component(opts, **props)
         
 
 def dynotimezone(

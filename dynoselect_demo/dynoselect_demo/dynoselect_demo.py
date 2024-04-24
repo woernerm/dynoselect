@@ -1,5 +1,6 @@
 import reflex as rx
 from reflex_dynoselect import dynotimezone, dynoselect
+from reflex_dynoselect.options import TimezoneOptions
 
 options = [
     {"value": "ocean", "label": "Ocean", "keywords": ["blue", "water"]},
@@ -23,10 +24,9 @@ def index() -> rx.Component:
         #     search_placeholder="Search for a timezone",
         # ),
         dynoselect(
-            options, 
+            TimezoneOptions("de-DE"), 
             placeholder="Select a color", 
-            search_placeholder="Search for a color",
-            create_option=dict(value="custom", label='Create "{}"')
+            search_placeholder="Search for a color"
         )
     )
 
