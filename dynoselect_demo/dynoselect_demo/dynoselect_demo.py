@@ -15,19 +15,21 @@ class State(rx.State):
     """The app state."""
     pass
 
+tmp = dynotimezone(
+    "de-DE",
+    placeholder="Select a timezone",
+    search_placeholder="Search for a timezone",
+)
+
 def index() -> rx.Component:
     return rx.center(
         rx.theme_panel(),
-        # dynotimezone(
-        #     "de-DE",
-        #     placeholder="Select a timezone",
-        #     search_placeholder="Search for a timezone",
-        # ),
-        dynoselect(
-            TimezoneOptions("de-DE"), 
-            placeholder="Select a color", 
-            search_placeholder="Search for a color"
-        )
+        tmp
+        # dynoselect(
+        #     TimezoneOptions("de-DE"), 
+        #     placeholder="Select a color", 
+        #     search_placeholder="Search for a color"
+        # )
     )
 
 # Add state and page to the app.

@@ -1,7 +1,5 @@
 from zoneinfo import available_timezones, ZoneInfo
-from datetime import datetime
 from collections import defaultdict
-from pathlib import PurePath
 import re
 
 from babel.dates import get_timezone_location, get_timezone_name
@@ -39,7 +37,7 @@ class DeprecatedTimezones(dict):
             self[oldname.strip()] = target.strip()
 
 
-class TimezoneCities(dict):
+class TimezoneCityRegistry(dict):
     """Mapping of timezones to the most populous cities within these zones.
     
     The dataset is from the GeoNames database at https://www.geonames.org/. For each
@@ -103,7 +101,7 @@ class TimezoneCities(dict):
             self[timezone] = entries[:maxcities]
 
 
-class TimezoneOptions(list):
+class TimezoneRegistry(list):
     """ Mapping of canonical timezone names to localized names.
     
     The keys are canonical IANA timezone names and the values are localized, human 
@@ -116,6 +114,8 @@ class TimezoneOptions(list):
     _DEPRECATED = None
     _CITIES = None
 
+    _THRESHOLD = 200
+
     def __init__(self, locale: str, maxcities: int) -> None:
         self.locale = Locale.parse(locale, sep="-")
 
@@ -123,26 +123,22 @@ class TimezoneOptions(list):
             self._DEPRECATED = DeprecatedTimezones()
 
         if self._CITIES is None:
-            self._CITIES = TimezoneCities(maxcities)
+            self._CITIES = TimezoneCityRegistry(maxcities)
 
         canonical = {
             self.canonical(name) for name in available_timezones() 
             if name not in self._DEPRECATED
         }
         zones = defaultdict(set)
-        zones = dict([self.tzname(e) for e in canonical])
-    
-        for canonical, label in zones.items():
-            if label is not None:
-                self.append(self.entry(canonical, label))
-        
-    def offset(self, canonical: str):
-        """Return timezone names as UTC offset with represenative cities."""
-        ref = datetime.now().astimezone(ZoneInfo(canonical))
-        offset = int((ref.utcoffset() - ref.dst()).total_seconds())
-        hours = int(offset // 3600)
-        minutes = int(offset % 3600 // 60)
-        return f"UTC{hours:+03}:{minutes:02d}" 
+        zones = dict([self.tzname(e) for e in canonical]) # Ensure uniqueness.
+        zones = [(k, v,) for k, v in zones.items() if v is not None]
+        zones = sorted(zones, key=lambda x: x[1])
+
+        if len(zones) < self._THRESHOLD:
+            raise LookupError(f"Not enough timezones found ({len(zones)}).")
+
+        for canonical, label in zones:
+            self.append(self.entry(canonical, label))
 
     def entry(self, canonical: str, label: str) -> dict:
         """Create a dictionary entry for a timezone."""
@@ -150,11 +146,11 @@ class TimezoneOptions(list):
         
         # Add cities with the same timezone. However use only cities  that improve the 
         # search, i.e. those that would not be found in canonical name or label anyway.
-        key = TimezoneCities.KEY_NAME
+        key = TimezoneCityRegistry.KEY_NAME
         keywords = [
             e[key] for e in cities if e[key] not in canonical and e[key] not in label
         ]
-        data = {"value": canonical, "label": f"{label} ({self.offset(canonical)})"}
+        data = {"value": canonical, "label": label}
         # Save space by only mentioning keywords if necessary.
         if keywords:
             data["keywords"] = keywords 
@@ -169,10 +165,13 @@ class TimezoneOptions(list):
         tz = ZoneInfo(canonical)
 
         # Get a representative city for the timezone.
-        city = get_timezone_location(tz, locale=self.locale, return_city=True)        
-        # Get the territory of the timezone and its translated name.
-        territory = get_global('zone_territories').get(canonical, "")
-        territory = self.locale.territories.get(territory, "")
+        try:
+            city = get_timezone_location(tz, locale=self.locale, return_city=True)        
+            # Get the territory of the timezone and its translated name.
+            territory = get_global('zone_territories').get(canonical, "")
+            territory = self.locale.territories.get(territory, "")
+        except KeyError:
+            return None, None
 
         # Filter zones that are not associated with a territory.
         if not city or not territory:
@@ -185,5 +184,9 @@ class TimezoneOptions(list):
                 return canonical, name
             return None, None
 
-        return canonical, format_list([city, territory], "unit-short", self.locale)
+        try:
+            listed = format_list([city, territory], "unit-short", self.locale)
+        except KeyError:
+            listed = ", ".join([city, territory])
+        return canonical, listed
 

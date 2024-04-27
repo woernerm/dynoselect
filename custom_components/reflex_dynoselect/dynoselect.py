@@ -101,7 +101,7 @@ class Dynoselect(rx.ComponentState):
     _KEY_KEYWORDS = "keywords"
     _KEY_VALUE = "value"
 
-    _COLOR_PLACEHOLDER = "var(--gray-a10)"
+    _COLOR_PLACEHOLDER = rx.color("gray", 10)
     
     @classmethod
     def client_search(cls, option) -> rx.Var[bool]:
@@ -128,18 +128,22 @@ class Dynoselect(rx.ComponentState):
         show the create option if no results are found, it does not seem to be possible 
         with the current reflex implementation without asking the backend for help.
         """
-        opts = self.formatted_options
+        opts = self.cached_options
         result = Option._SEARCH_DELIMITER.join(
             chain(*[[e.get(self._KEY_LABEL, ""), e.get(self._KEY_KEYWORDS, "")] for e in opts])
         )
         return result
 
     @rx.cached_var
-    def formatted_options(self) -> list[dict[str, str]]:
+    def cached_options(self) -> list[dict[str, str]]:
         """ Modify options before display (e.g. to include recent information). 
         
         The default implementation will just use the options without modification.
         """
+        return self.format_options()
+    
+    def format_options(self) -> list[dict[str, str]]:
+        """ Format the options before display. """
         return self.options
     
     @classmethod
@@ -245,14 +249,14 @@ class Dynoselect(rx.ComponentState):
                 rx.scroll_area(
                     rx.flex(
                         rx.foreach(
-                            cls.formatted_options, 
+                            cls.cached_options, 
                             lambda opt, i: entry(cls.client_search(opt), opt, i)
                         ),
                         (
                             entry(
                                 ~cls.chained_options.lower().contains(cls.search_phrase.lower()), 
                                 opt_create.format(cls.search_phrase), 
-                                cls.formatted_options.length(), 
+                                cls.cached_options.length(), 
                                 True
                             ) if create_option else rx.fragment()
                         ),
@@ -352,42 +356,43 @@ def dynoselect(
 class Dynotimezone(Dynoselect):
 
     _ICON_SIZE = 16
-    _KEY_PLACEHOLDER = "placeholder"
 
     locale: str
+
+    def offset(self, canonical: str):
+        """Return timezone names as UTC offset with represenative cities."""
+        ref = datetime.now().astimezone(ZoneInfo(canonical))
+        offset = ref.utcoffset().total_seconds()
+        hours = int(offset // 3600)
+        minutes = int(offset % 3600 // 60)
+        return f"UTC{hours:+03}:{minutes:02d}" 
     
-    @rx.cached_var
-    def formatted_options(self) -> list[dict[str, str]]:
+    def format_options(self) -> list[dict[str, str]]:
         """ Modify options before display (e.g. to include recent information). 
         
         The default implementation will just use the options without modification.
         """
-        print("formatting options")
-        ref = datetime.now().astimezone(timezone.utc)
-        tm = ref.isoformat(sep=" ", timespec="minutes")
-        options = [dict(**opt) for opt in self.options]
+        options = [Option(**opt) for opt in self.options]
         for opt in options:
-            opt[self._KEY_LABEL] += tm
-
-        return self.options[:2]
+            opt.label = f"{opt.label} ({self.offset(opt.value)})"    
+        return options
 
     @classmethod
-    def btntext(cls, text: str, **props) -> rx.Component:
-        return rx.flex(
-            rx.icon("globe", size=cls._ICON_SIZE, color=cls._COLOR_PLACEHOLDER),
-            rx.text(text, color=cls._COLOR_PLACEHOLDER),
-            direction="row",
-            spacing="2",
-            align="center",
-        )
+    def btntext(cls, child, **props) -> rx.Component:
+        if isinstance(child, str):
+            return rx.flex(
+                rx.icon("globe", size=cls._ICON_SIZE, **props),
+                rx.text(child, **props),
+                direction="row",
+                spacing="2",
+                align="center",
+            )
+        return child
     
     @classmethod
     def get_component(cls, locale: str, **props):
         cls.__fields__["locale"].default = locale
         opts = TimezoneOptions(locale)
-        # props[cls._KEY_PLACEHOLDER] = cls.btntext(
-        #     props.get(cls._KEY_PLACEHOLDER, "")
-        # )
         
         return super().get_component(opts, **props)
         

@@ -42,6 +42,7 @@ def get_locale_table(locale: "Locale" = None) -> dict[str, str]:
         except UnknownLocaleError:
             return None
     
-    table = {e.strip(): display_name(e) for e in LocaleRegistry()}
-    table = {k: v for k, v in table.items() if v is not None}
-    return [{"value": k, "label": v} for k, v in table.items()]
+    table = [(e.strip(), display_name(e),) for e in LocaleRegistry()]
+    table = [(k, v,) for k, v in table if v is not None]
+    table = sorted(table, key=lambda x: x[1])
+    return [{"value": k, "label": v} for k, v in table]
