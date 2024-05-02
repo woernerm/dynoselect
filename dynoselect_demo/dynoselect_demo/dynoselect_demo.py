@@ -1,6 +1,5 @@
 import reflex as rx
-from reflex_dynoselect import dynotimezone, dynoselect
-from reflex_dynoselect.options import TimezoneOptions
+from reflex_dynoselect import dynoselect, dynotimezone
 
 options = [
     {"value": "ocean", "label": "Ocean", "keywords": ["blue", "water"]},
@@ -15,21 +14,14 @@ class State(rx.State):
     """The app state."""
     pass
 
-tmp = dynotimezone(
-    "de-DE",
-    placeholder="Select a timezone",
-    search_placeholder="Search for a timezone",
-)
-
 def index() -> rx.Component:
     return rx.center(
         rx.theme_panel(),
-        tmp
-        # dynoselect(
-        #     TimezoneOptions("de-DE"), 
-        #     placeholder="Select a color", 
-        #     search_placeholder="Search for a color"
-        # )
+        dynotimezone(
+            "fr",
+            placeholder="Select a color", 
+            search_placeholder="Search for a color"
+        )
     )
 
 # Add state and page to the app.

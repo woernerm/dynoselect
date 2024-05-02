@@ -1,34 +1,71 @@
-from json import dump
 from pathlib import Path
+from sys import path
+path.append(str(Path(__file__).parent.parent / "custom_components" ))
 
-from locales import get_locale_table
-from timezone import TimezoneRegistry, TimezoneCityRegistry
+from rich.console import Console
+from localeregistry import LocaleRegistry
+from tzregistry import TimezoneRegistry
 
-DATA_DIR = Path.cwd() / "custom_components" / "reflex_dynoselect" / "options"
-LOCALE_FILE = DATA_DIR / "locales.json"
+from reflex_dynoselect.options import (
+    LocalizedOptions, TIMEZONE_OPTION_PATH, LOCALE_OPTION_PATH
+)
 
-TIMEZONE_FILE = DATA_DIR / "timezones_{}.json"
+MIN_LANGUAGES = 0.9
 
-def write_data(filename: Path, data: any):
-    with open(str(filename), 'w', encoding='utf-8') as file:
-        dump(data, file, ensure_ascii=False)
+def write_timezone_options(archive: Path):
+    """ Write database file for timezone options. """
+    out = Console()
+    # Use the English locale as reference for what timezones should be available.
+    with out.status("Determining reference timezones..."):
+        ref_zones = TimezoneRegistry("en-US").values()
+    out.print(f"Found {len(ref_zones)} reference timezones.")
 
-def write_locale_options(data):
-    write_data(LOCALE_FILE, data)
+    with LocalizedOptions(archive, "w") as file:
+        for locale in LocaleRegistry().values():
+            out.print(f"Writing timezone options for {locale}... ", end="")
+            try:
+                zones = TimezoneRegistry(locale)
+                if bool(ref_zones - zones.values()):
+                    raise Exception(f"Too few/different timezones ({len(zones)})")
+                # Only store translations for reference timezones.
+                zones = [e for e in zones if e.value in ref_zones]
+                file.add(locale, zones)
+                out.print("[green]Ok.")
+            except Exception as e:
+                out.print(f"[red]Failed: {e}")
+        out.print("Stored ", file.language_count(), " languages.")
 
-def write_timezone_options(locale: str, maxcities: int):
-    loc = locale.replace("-", "_")
-    write_data(str(TIMEZONE_FILE).format(loc), TimezoneRegistry(locale, maxcities))
+def write_locale_options(archive: Path):
+    """ Write database file for locale options. """
+    out = Console()
+    # Only use locales which can be translated into all locales that have at least
+    # MIN_LANGUAGES percent of all translations.
+    with out.status("Determining autonyms..."):
+        autonyms = LocaleRegistry(None).values()
+        lang_count = len(autonyms) * MIN_LANGUAGES
 
-print("Writing locales...")
-locales = get_locale_table()
-write_locale_options(locales)
+    with out.status("Determining reference locales that are widely translatable... "):
+        registries = {e: LocaleRegistry(e) for e in autonyms}
+        valid_regs = [r for r in registries.values() if len(r) >= lang_count]
+        refs = autonyms.intersection(*[e.values() for e in valid_regs]) 
+    out.print(f"Found {len(refs)} locales that are widely translatable...")
 
-for option in locales:
-    locale = option["value"]
-    print(f"Writing timezones for {locale}... ", end="")
-    try:
-        write_timezone_options(locale, 5)
-        print("Ok.")
-    except Exception as e:
-        print(f"Failed: {e}")
+    with LocalizedOptions(archive, "w") as file:
+        for locale in refs.union({None}):
+            out.print(f'Writing locale options for {locale or "autonyms"}... ', end="")
+            try:
+                data = registries.get(locale)
+                missing = refs - data.values()
+                if missing: # Does the locale miss any values?
+                    raise Exception(f"Missing {len(missing)} translations.")
+                
+                # Only store translations for reference locales.
+                data = [e for e in data if e.value in refs]
+                file.add(locale, data)
+                out.print("[green]Ok.")
+            except Exception as e:
+                out.print(f"[red]Failed: {e}")
+        out.print(f"Stored {len(refs)} locales in {file.language_count()} languages.")
+
+write_locale_options(LOCALE_OPTION_PATH)
+write_timezone_options(TIMEZONE_OPTION_PATH)

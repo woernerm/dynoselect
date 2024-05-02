@@ -1,7 +1,7 @@
 """Reflex custom component Dynoselect."""
 
-from typing import List, Dict, Literal, Optional, Union, Callable
-from datetime import datetime, timezone
+from typing import List, Dict, Literal, Optional, Callable
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from itertools import chain
 import reflex as rx
@@ -11,52 +11,11 @@ from reflex.components.radix.themes.base import LiteralRadius
 from reflex.components.radix.themes.components.text_field import LiteralTextFieldSize
 
 from .utils import chevron_down
-from .options import TimezoneOptions
+from .options import Option, LocalizedOptions, TIMEZONE_OPTION_PATH
 
 LiteralIndent = Literal[
     "0", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "5", "6", "7", "8", "9", "10"
 ]
-
-class Option(dict):
-    KEYS = ["label", "value", "keywords"]
-
-    _SEARCH_DELIMITER = " " # The delimiter used to separate search words.
-
-    def __init__(self, label: str = "", value: str = "", keywords: List[str] = []):
-        super().__init__(
-            label=label, 
-            value=value, 
-            keywords=self._SEARCH_DELIMITER.join(keywords)
-        )
-
-    def _hasattr(self, key):
-        if key not in self.KEYS:
-            raise AttributeError(f'{self.__class__.__name__} has no attribute "{key}"')
-
-    def __getattr__(self, attr):
-        self._hasattr(attr)
-        return self.get(attr, "")
-    
-    def __setattr__(self, attr, value):
-        self._hasattr(attr)
-        self[attr] = value
-
-    def clone(self, **kwargs):
-        tmp = Option(**self)
-        for key, value in kwargs.items():
-            setattr(tmp, key, value)
-        return tmp
-
-    def format(self, *args, **kwargs):
-        value = self.value.format(*args, **kwargs)
-        label = self.label.format(*args, **kwargs)
-        keywords = self.keywords.format(*args, **kwargs)
-        return Option(label=label, value=value, keywords=keywords)
-
-         
-
-
-
 
 
 class Dynoselect(rx.ComponentState):
@@ -392,9 +351,8 @@ class Dynotimezone(Dynoselect):
     @classmethod
     def get_component(cls, locale: str, **props):
         cls.__fields__["locale"].default = locale
-        opts = TimezoneOptions(locale)
-        
-        return super().get_component(opts, **props)
+        options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
+        return super().get_component(options, **props)
         
 
 def dynotimezone(

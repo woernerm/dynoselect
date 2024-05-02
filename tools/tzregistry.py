@@ -7,6 +7,7 @@ from babel.lists import format_list
 from babel.core import Locale, get_global
 
 from utils import request
+from reflex_dynoselect.options import Option
 
 
 class DeprecatedTimezones(dict):
@@ -114,31 +115,30 @@ class TimezoneRegistry(list):
     _DEPRECATED = None
     _CITIES = None
 
-    _THRESHOLD = 200
-
-    def __init__(self, locale: str, maxcities: int) -> None:
+    def __init__(self, locale: str, maxcities: int = 0) -> None:
         self.locale = Locale.parse(locale, sep="-")
 
-        if self._DEPRECATED is None:
-            self._DEPRECATED = DeprecatedTimezones()
+        if TimezoneRegistry._DEPRECATED is None:
+            TimezoneRegistry._DEPRECATED = DeprecatedTimezones()
 
-        if self._CITIES is None:
-            self._CITIES = TimezoneCityRegistry(maxcities)
+        if TimezoneRegistry._CITIES is None:
+            TimezoneRegistry._CITIES = TimezoneCityRegistry(maxcities)
 
+        # Use only non-deprecated IANA timezones, e.g. Europe/Paris.
         canonical = {
             self.canonical(name) for name in available_timezones() 
-            if name not in self._DEPRECATED
+            if name not in self._DEPRECATED and "/" in name
         }
         zones = defaultdict(set)
         zones = dict([self.tzname(e) for e in canonical]) # Ensure uniqueness.
         zones = [(k, v,) for k, v in zones.items() if v is not None]
         zones = sorted(zones, key=lambda x: x[1])
 
-        if len(zones) < self._THRESHOLD:
-            raise LookupError(f"Not enough timezones found ({len(zones)}).")
-
         for canonical, label in zones:
             self.append(self.entry(canonical, label))
+
+    def values(self) -> set[str]:
+        return {e.value for e in self}
 
     def entry(self, canonical: str, label: str) -> dict:
         """Create a dictionary entry for a timezone."""
@@ -154,7 +154,7 @@ class TimezoneRegistry(list):
         # Save space by only mentioning keywords if necessary.
         if keywords:
             data["keywords"] = keywords 
-        return data
+        return Option(**data)
 
     def canonical(self, dbname: str) -> str:
         """Determine the canonical timezone name."""
@@ -183,10 +183,8 @@ class TimezoneRegistry(list):
             if not self._REGEX_INVALID.search(name):
                 return canonical, name
             return None, None
-
-        try:
-            listed = format_list([city, territory], "unit-short", self.locale)
-        except KeyError:
-            listed = ", ".join([city, territory])
+        
+        pattern = self.locale.list_patterns.get("standard", {}).get("middle", "{}, {}")
+        listed = pattern.format(city, territory)
         return canonical, listed
 
