@@ -105,6 +105,11 @@ class Dynoselect(rx.ComponentState):
         """ Format the options before display. """
         return self.options
     
+    def set_selected_by_value(self, value: str):
+        """ Set the selected option by value. """
+        default = self.__class__.__fields__["selected"].default
+        self.selected = next((e for e in self.options if e.value == value), default)
+    
     @classmethod
     def btntext(cls, child, **props) -> rx.Component:
         if child is None or isinstance(child, str):
@@ -130,6 +135,7 @@ class Dynoselect(rx.ComponentState):
         create_option: Optional[Dict[str, str]] = None,
         modal: bool = False,
         on_select: Optional[Callable] = None,
+        **props,
         ) -> rx.Component:
         """ Create the component. See dynoselect() function for more information.
         """
@@ -232,6 +238,7 @@ class Dynoselect(rx.ComponentState):
             ),
             modal=modal,
             on_open_change=cls.set_search_phrase(""),
+            **props
         )
 
 def dynoselect(
@@ -249,6 +256,7 @@ def dynoselect(
         create_option: dict[str, str] | None = None,
         modal: bool = False,
         on_select: Optional[callable] = None,
+        **props
 )-> rx.Component:
     """Create a the select component. 
         
@@ -308,6 +316,7 @@ def dynoselect(
         create_option=create_option,
         modal=modal,
         on_select=on_select,
+        **props,
     )
 
 
@@ -352,7 +361,13 @@ class Dynotimezone(Dynoselect):
     def get_component(cls, locale: str, **props):
         cls.__fields__["locale"].default = locale
         options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
-        return super().get_component(options, **props)
+
+        detect_timezone = rx.call_script(
+            "Intl.DateTimeFormat().resolvedOptions().timeZone", 
+            callback=cls.set_selected_by_value
+        )
+
+        return super().get_component(options, on_mount=detect_timezone, **props)
         
 
 def dynotimezone(
@@ -369,8 +384,10 @@ def dynotimezone(
         align: str = "left",
         modal: bool = False,
         on_select: Optional[callable] = None,
+        **props
 )-> rx.Component:
     """Create a timezone select component. """
+
 
     return Dynotimezone.create(
         locale=locale,
@@ -386,4 +403,5 @@ def dynotimezone(
         align=align,
         modal=modal,
         on_select=on_select,
+        **props
     )

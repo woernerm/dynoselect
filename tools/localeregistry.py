@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from babel.core import Locale
 from utils import request
 from json import loads

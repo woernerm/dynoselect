@@ -18,9 +18,9 @@ def index() -> rx.Component:
     return rx.center(
         rx.theme_panel(),
         dynotimezone(
-            "fr",
-            placeholder="Select a color", 
-            search_placeholder="Search for a color"
+            "de",
+            placeholder="Zeitzone", 
+            search_placeholder="Zeitzone suchen..."
         )
     )
 

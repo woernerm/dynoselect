@@ -5,6 +5,7 @@ path.append(str(Path(__file__).parent.parent / "custom_components" ))
 from rich.console import Console
 from localeregistry import LocaleRegistry
 from tzregistry import TimezoneRegistry
+from placeholder import Placeholder
 
 from reflex_dynoselect.options import (
     LocalizedOptions, TIMEZONE_OPTION_PATH, LOCALE_OPTION_PATH
