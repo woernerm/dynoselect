@@ -11,7 +11,9 @@ from reflex.components.radix.themes.base import LiteralRadius
 from reflex.components.radix.themes.components.text_field import LiteralTextFieldSize
 
 from .utils import chevron_down
-from .options import Option, LocalizedOptions, TIMEZONE_OPTION_PATH
+from .options import (
+    Option, LocalizedOptions, TIMEZONE_OPTION_PATH, LOCALE_OPTION_PATH, NONE_LOCALE
+)
 
 LiteralIndent = Literal[
     "0", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "5", "6", "7", "8", "9", "10"
@@ -59,6 +61,9 @@ class Dynoselect(rx.ComponentState):
     _KEY_LABEL = "label"
     _KEY_KEYWORDS = "keywords"
     _KEY_VALUE = "value"
+
+    _icon_size = 16
+    """The size of the icon in pixels."""
 
     _COLOR_PLACEHOLDER = rx.color("gray", 10)
     
@@ -109,14 +114,13 @@ class Dynoselect(rx.ComponentState):
         """ Set the selected option by value. """
         default = self.__class__.__fields__["selected"].default
         self.selected = next((e for e in self.options if e.value == value), default)
-    
+        
     @classmethod
-    def btntext(cls, child, **props) -> rx.Component:
-        if child is None or isinstance(child, str):
-            class_name = props.pop("class_name", "rt-SelectTriggerInner")
-            return rx.text(child or "", class_name=class_name, **props)
-        else:
-            return child
+    def btntext(cls, child, icon: str, **props) -> rx.Component:
+        """Create a button text with a globe icon and placeholder text."""
+        comps = [rx.text(child, **props)] if isinstance(child, str) else [child]
+        comps = [rx.icon(icon, size=cls._icon_size, **props)] + comps if icon else comps
+        return rx.flex(*comps, direction="row", spacing="2", align="center")
 
     @classmethod
     def get_component(
@@ -135,6 +139,7 @@ class Dynoselect(rx.ComponentState):
         create_option: Optional[Dict[str, str]] = None,
         modal: bool = False,
         on_select: Optional[Callable] = None,
+        icon: str = None,
         **props,
         ) -> rx.Component:
         """ Create the component. See dynoselect() function for more information.
@@ -193,9 +198,14 @@ class Dynoselect(rx.ComponentState):
                     rx.cond(
                         cls.selected[cls._KEY_LABEL] == "",
                         cls.btntext(
-                            placeholder, color=cls._COLOR_PLACEHOLDER, weight=weight
+                            placeholder, 
+                            icon, 
+                            color=cls._COLOR_PLACEHOLDER, 
+                            weight=weight
                         ),
-                        cls.btntext(f"{cls.selected[cls._KEY_LABEL]}", weight=weight),
+                        cls.btntext(
+                            f"{cls.selected[cls._KEY_LABEL]}", icon, weight=weight
+                        ),
                     ),
                     chevron_down(),
                     class_name="rt-reset rt-SelectTrigger rt-variant-surface",
@@ -322,10 +332,21 @@ def dynoselect(
 
 
 class Dynotimezone(Dynoselect):
+    """A select component for timezones.
+    
+    The component provides an extensive list of timezones that are translated into the
+    selected locale. By default, the component tries to detect the user's timezone and
+    select it. If the detection fails, the given default option is used or, if no
+    default option is given, no timezone is selected. 
 
-    _ICON_SIZE = 16
+    Timezones are given as a representative city and country as well as the UTC offset.
+    The offset is calculated ony the fly on page load in order to accomate for changes
+    in offset due to daylight saving time. 
 
-    locale: str
+    Translations have been precomputed and stored in multiple JSON files that are
+    themeselves stored in a tar.gz archive. This avoids negative performance impacts
+    during app compilation.
+    """
 
     def offset(self, canonical: str):
         """Return timezone names as UTC offset with represenative cities."""
@@ -344,22 +365,9 @@ class Dynotimezone(Dynoselect):
         for opt in options:
             opt.label = f"{opt.label} ({self.offset(opt.value)})"    
         return options
-
-    @classmethod
-    def btntext(cls, child, **props) -> rx.Component:
-        if isinstance(child, str):
-            return rx.flex(
-                rx.icon("globe", size=cls._ICON_SIZE, **props),
-                rx.text(child, **props),
-                direction="row",
-                spacing="2",
-                align="center",
-            )
-        return child
     
     @classmethod
     def get_component(cls, locale: str, **props):
-        cls.__fields__["locale"].default = locale
         options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
 
         detect_timezone = rx.call_script(
@@ -367,7 +375,12 @@ class Dynotimezone(Dynoselect):
             callback=cls.set_selected_by_value
         )
 
-        return super().get_component(options, on_mount=detect_timezone, **props)
+        on_mount = detect_timezone
+        user_on_mount = props.pop("on_mount", None)
+        if user_on_mount:
+            on_mount = lambda: [detect_timezone(), user_on_mount()]
+
+        return super().get_component(options, on_mount=on_mount, **props)
         
 
 def dynotimezone(
@@ -384,10 +397,41 @@ def dynotimezone(
         align: str = "left",
         modal: bool = False,
         on_select: Optional[callable] = None,
+        icon: str = "globe",
         **props
 )-> rx.Component:
-    """Create a timezone select component. """
-
+    """Create a timezone select component. 
+    
+    Args:
+        locale: The locale to use for the timezone names.
+        default_option: The default option to select. By default, the component will
+            try to detect the user's timezone and select it. If the detection fails,
+            the default option is used.
+        placeholder: The placeholder text for the select component that is shown
+            when no option is selected.
+        search_placeholder: The placeholder text for the search input field.
+        size: Relative size of the component. Allowed values are "1", "2", and "3".
+        weight: The weight of the text. Allowed values are "none", "light", 
+            "regular", "medium", and "bold".
+        radius: The radius of the select component. Allowed values are "none",
+            "small", "medium", "large", and "full".
+        height: The height of the select component. Can be given as a CSS value
+            like "10rem" or "100%".
+        padding: The padding around the border of the select component.
+        indent: The indentation of the select component. If align is chosen to be
+            "center", the indentation is applied horizontally to both sides and
+            therefore acts as padding. Otherwise, it is applied to one side only
+            and works as normal indentation.
+        align: The alignment of each option. Allowed values are "left", "center", and 
+            "right".
+        modal: Directly passed on to PopoverRoot. If true, interaction on screen 
+            readers with other elements is disabled and only popover content 
+            is visible.
+        on_select: Event handler that is called when the user selects an option. Note
+            that the event handler is called even if the user selects the same value
+            as before.
+        icon: The lucide icon to display next to the selected option.
+    """
 
     return Dynotimezone.create(
         locale=locale,
@@ -403,5 +447,87 @@ def dynotimezone(
         align=align,
         modal=modal,
         on_select=on_select,
+        icon=icon,
         **props
     )
+
+class Dynolanguage(Dynoselect):
+
+    @classmethod
+    def get_component(cls, locale: str, **props):
+        options = LocalizedOptions.load(LOCALE_OPTION_PATH, locale or NONE_LOCALE)
+        return super().get_component(options, **props)
+    
+
+def dynolanguage(
+        locale: str = None,
+        default_option: Dict[str, str] = None, 
+        placeholder: str | None = None,
+        search_placeholder: str | None = None,
+        size: LiteralTextFieldSize = "2",
+        weight: LiteralTextWeight = "regular",
+        radius: LiteralRadius | None = None,
+        height: str = "20rem",
+        padding: str = "2",
+        indent: LiteralIndent = "6",
+        align: str = "left",
+        modal: bool = False,
+        on_select: Optional[callable] = None,
+        icon: str = "languages",
+        **props
+)-> rx.Component:
+    """Create a language select component.
+
+    Args:
+        locale: The locale to use for the language names. If None, each language
+            is displayed in its own respective locale.
+        default_option: The default option to select. By default, the component will
+            try to detect the user's locale and select it. If the detection fails,
+            the default option is used.
+        placeholder: The placeholder text for the select component that is shown
+            when no option is selected.
+        search_placeholder: The placeholder text for the search input field.
+        size: Relative size of the component. Allowed values are "1", "2", and "3".
+        weight: The weight of the text. Allowed values are "none", "light", 
+            "regular", "medium", and "bold".
+        radius: The radius of the select component. Allowed values are "none",
+            "small", "medium", "large", and "full".
+        height: The height of the select component. Can be given as a CSS value
+            like "10rem" or "100%".
+        padding: The padding around the border of the select component.
+        indent: The indentation of the select component. If align is chosen to be
+            "center", the indentation is applied horizontally to both sides and
+            therefore acts as padding. Otherwise, it is applied to one side only
+            and works as normal indentation.
+        align: The alignment of each option. Allowed values are "left", "center", and 
+            "right".
+        modal: Directly passed on to PopoverRoot. If true, interaction on screen 
+            readers with other elements is disabled and only popover content 
+            is visible.
+        on_select: Event handler that is called when the user selects an option. Note
+            that the event handler is called even if the user selects the same value
+            as before.
+        icon: The lucide icon to display next to the selected option.
+    """
+
+    return Dynolanguage.create(
+        locale=locale,
+        default_option=default_option,
+        placeholder=placeholder,
+        search_placeholder=search_placeholder,
+        size=size,
+        weight=weight,
+        radius=radius,
+        height=height,
+        padding=padding,
+        indent=indent,
+        align=align,
+        modal=modal,
+        on_select=on_select,
+        icon=icon,
+        **props
+    )
+
+
+
+

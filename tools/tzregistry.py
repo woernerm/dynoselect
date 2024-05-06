@@ -9,6 +9,10 @@ from babel.core import Locale, get_global
 from utils import request
 from reflex_dynoselect.options import Option
 
+from pyuca import Collator
+
+collator = Collator()
+
 
 class DeprecatedTimezones(dict):
     """Mapping of deprecated timezones to current timezones.
@@ -132,7 +136,7 @@ class TimezoneRegistry(list):
         zones = defaultdict(set)
         zones = dict([self.tzname(e) for e in canonical]) # Ensure uniqueness.
         zones = [(k, v,) for k, v in zones.items() if v is not None]
-        zones = sorted(zones, key=lambda x: x[1])
+        zones = sorted(zones, key=lambda x: collator.sort_key(x[1]))
 
         for canonical, label in zones:
             self.append(self.entry(canonical, label))

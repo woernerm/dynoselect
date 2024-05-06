@@ -4,6 +4,10 @@ from json import loads
 from babel.core import UnknownLocaleError
 from babel.core import Locale
 
+from pyuca import Collator
+
+collator = Collator()
+
 class LocaleRegistry(list):
     """ Iterates over a real-world list of locales from the Unicode CLDR repository. """
 
@@ -43,7 +47,7 @@ class LocaleRegistry(list):
     
         table = [Option(value=e.strip(), label=display_name(e)) for e in self._content]
         table = [e for e in table if e.label is not None and e.value is not None]
-        super().__init__(sorted(table, key=lambda opt: opt.label))
+        super().__init__(sorted(table, key=lambda opt: collator.sort_key(opt.label)))
 
     def values(self) -> set[str]:
         return {e.value for e in self}

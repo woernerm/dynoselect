@@ -10,6 +10,9 @@ TIMEZONE_OPTION_PATH = (Path(__file__).parent / "timezones.tar.gz").absolute()
 LOCALE_OPTION_PATH = (Path(__file__).parent / "locales.tar.gz").absolute()
 """Path to the locale options archive."""
 
+NONE_LOCALE = "autonyms"
+"""The key for autonyms in the locale options archive."""
+
 class Option(dict):
     """ Represents a single selectable option."""
     KEYS = ["label", "value", "keywords"]
@@ -61,12 +64,6 @@ class LocalizedOptions:
     The class is meant to be used as a context manager using the "with" statement.
     """
 
-    _AUTONYMS = "autonyms" 
-    """ Option in their corresponding locale.
-    
-    For example, the language option "German" given in German, which would be "Deutsch".
-    """
-
     _SEPARATOR = "-"
     _SUFFIX = ".json"
 
@@ -84,7 +81,7 @@ class LocalizedOptions:
             locale: The locale to normalize.
         """
         if not locale:
-            return self._AUTONYMS
+            return NONE_LOCALE
         return locale.replace("_", self._SEPARATOR)
 
     def add(self, locale: str, data: any):
@@ -139,8 +136,7 @@ class LocalizedOptions:
     
     def get_locales(self) -> list[str]:
         """ Return a list of all locales in the archive."""
-        locales = [e.removesuffix(self._SUFFIX) for e in self.get_members()]
-        return [None if e == self._AUTONYMS else e for e in locales]
+        return [e.removesuffix(self._SUFFIX) for e in self.get_members()]
     
     def get_members(self) -> list[str]:
         """ Return a list of all filenames in the archive."""
