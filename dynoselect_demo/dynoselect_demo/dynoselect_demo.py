@@ -20,17 +20,18 @@ def index() -> rx.Component:
         dynoselect(
             options,
             placeholder="Select a color",
-            search_placeholder="Search for a color..."
+            search_placeholder="Search for a color...",
+            #create_option={"value": "create", "label": "Create {}"}
         ),
         dynotimezone(
-            "de",
+            "en-US",
             placeholder="Zeitzone", 
             search_placeholder="Zeitzone suchen..."
         ),
-        dynolanguage(
-            placeholder="Sprache", 
-            search_placeholder="Sprache suchen..."
-        )
+        # dynolanguage(
+        #     placeholder="Sprache", 
+        #     search_placeholder="Sprache suchen..."
+        # )
     )
 
 # Add state and page to the app.

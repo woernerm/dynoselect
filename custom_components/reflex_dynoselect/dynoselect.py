@@ -55,8 +55,14 @@ class Dynoselect(rx.ComponentState):
     the dictionary to store additional information about an option.
     """
 
-    options: list[dict[str, str]]
-    """ The options available to the user. """
+    options: list[dict[str, str]] = []
+    """ The formatted options available to the user. """
+
+    chained_options: str
+    """ A string that concatenates all options for search purposes."""
+
+    _raw_options: list[dict[str, str]] = []
+    """ The unformatted options as given during initialization. """
 
     _KEY_LABEL = "label"
     _KEY_KEYWORDS = "keywords"
@@ -68,7 +74,7 @@ class Dynoselect(rx.ComponentState):
     _COLOR_PLACEHOLDER = rx.color("gray", 10)
     
     @classmethod
-    def client_search(cls, option) -> rx.Var[bool]:
+    def client_search(cls, option: Option) -> rx.Var[bool]:
         """ Search for the search phrase in the given keywords and label.
 
         The option's value is not searched to avoid awkward results in case the value
@@ -82,33 +88,16 @@ class Dynoselect(rx.ComponentState):
             option[cls._KEY_LABEL].lower().contains(cls.search_phrase.lower()) |
             option[cls._KEY_KEYWORDS].lower().contains(cls.search_phrase.lower())
         )
-
-    @rx.cached_var
-    def chained_options(self) -> str:
-        """ Summarize all search data in a single string.
-        
-        This is used to display a create option if not other results can be found.
-        Although it would be better to count the number of search results and only
-        show the create option if no results are found, it does not seem to be possible 
-        with the current reflex implementation without asking the backend for help.
-        """
-        opts = self.cached_options
-        result = Option._SEARCH_DELIMITER.join(
-            chain(*[[e.get(self._KEY_LABEL, ""), e.get(self._KEY_KEYWORDS, "")] for e in opts])
-        )
-        return result
-
-    @rx.cached_var
-    def cached_options(self) -> list[dict[str, str]]:
-        """ Modify options before display (e.g. to include recent information). 
-        
-        The default implementation will just use the options without modification.
-        """
-        return self.format_options()
     
-    def format_options(self) -> list[dict[str, str]]:
+    def update_chain(self):
+        self.chained_options = Option._SEARCH_DELIMITER.join(
+            chain(*[[e.label, e.keywords] for e in self.options])
+        )
+    
+    def format_options(self):
         """ Format the options before display. """
-        return self.options
+        self.options = [Option(**opt) for opt in self._raw_options]
+        self.update_chain()
     
     def set_selected_by_value(self, value: str):
         """ Set the selected option by value. """
@@ -125,7 +114,6 @@ class Dynoselect(rx.ComponentState):
     @classmethod
     def get_component(
         cls, 
-        options: List[Dict[str, str]], 
         default_option: Dict[str, str], 
         placeholder: str,
         search_placeholder: str,
@@ -146,9 +134,9 @@ class Dynoselect(rx.ComponentState):
         """
         size_radius = dict(size=size, radius=radius)
         opt_create = Option(**(create_option or {}))
+        props["on_mount"] = props.get("on_mount", cls.format_options)
 
         cls.__fields__["selected"].default = default_option or cls._DEFAULT
-        cls.__fields__["options"].default = [Option(**opt) for opt in options]
         
         def hoverable(child, idx: int, **props) -> rx.Component:
             btn = rx.button(
@@ -209,7 +197,7 @@ class Dynoselect(rx.ComponentState):
                     ),
                     chevron_down(),
                     class_name="rt-reset rt-SelectTrigger rt-variant-surface",
-                    **size_radius
+                    **size_radius,
                 ),
             ),
             rx.popover.content(
@@ -224,14 +212,14 @@ class Dynoselect(rx.ComponentState):
                 rx.scroll_area(
                     rx.flex(
                         rx.foreach(
-                            cls.cached_options, 
+                            cls.options, 
                             lambda opt, i: entry(cls.client_search(opt), opt, i)
                         ),
                         (
                             entry(
                                 ~cls.chained_options.lower().contains(cls.search_phrase.lower()), 
                                 opt_create.format(cls.search_phrase), 
-                                cls.cached_options.length(), 
+                                cls.options.length(), 
                                 True
                             ) if create_option else rx.fragment()
                         ),
@@ -311,8 +299,7 @@ def dynoselect(
             as before.
     """
 
-    return Dynoselect.create(
-        options=options,
+    component = Dynoselect.create(
         default_option=default_option,
         placeholder=placeholder,
         search_placeholder=search_placeholder,
@@ -328,6 +315,8 @@ def dynoselect(
         on_select=on_select,
         **props,
     )
+    component.State._raw_options = options
+    return component
 
 
 
@@ -361,26 +350,23 @@ class Dynotimezone(Dynoselect):
         
         The default implementation will just use the options without modification.
         """
-        options = [Option(**opt) for opt in self.options]
-        for opt in options:
-            opt.label = f"{opt.label} ({self.offset(opt.value)})"    
-        return options
+        self.options = [Option(**opt) for opt in self._raw_options]
+        for opt in self.options:
+            opt.label = f"{opt.label} ({self.offset(opt.value)})" 
+        self.update_chain()   
     
     @classmethod
-    def get_component(cls, locale: str, **props):
-        options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
-
+    def get_component(cls, **props):
         detect_timezone = rx.call_script(
             "Intl.DateTimeFormat().resolvedOptions().timeZone", 
             callback=cls.set_selected_by_value
         )
 
-        on_mount = detect_timezone
-        user_on_mount = props.pop("on_mount", None)
-        if user_on_mount:
-            on_mount = lambda: [detect_timezone(), user_on_mount()]
+        props["on_mount"] = props.get(
+            "on_mount", lambda: [cls.format_options(), detect_timezone]
+        )
 
-        return super().get_component(options, on_mount=on_mount, **props)
+        return super().get_component(**props)
         
 
 def dynotimezone(
@@ -433,7 +419,9 @@ def dynotimezone(
         icon: The lucide icon to display next to the selected option.
     """
 
-    return Dynotimezone.create(
+    options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
+
+    component = Dynotimezone.create(
         locale=locale,
         default_option=default_option,
         placeholder=placeholder,
@@ -450,13 +438,8 @@ def dynotimezone(
         icon=icon,
         **props
     )
-
-class Dynolanguage(Dynoselect):
-
-    @classmethod
-    def get_component(cls, locale: str, **props):
-        options = LocalizedOptions.load(LOCALE_OPTION_PATH, locale or NONE_LOCALE)
-        return super().get_component(options, **props)
+    component.State._raw_options = options
+    return component
     
 
 def dynolanguage(
@@ -509,8 +492,10 @@ def dynolanguage(
             as before.
         icon: The lucide icon to display next to the selected option.
     """
+    options = LocalizedOptions.load(LOCALE_OPTION_PATH, locale or NONE_LOCALE)
 
-    return Dynolanguage.create(
+    return dynoselect(
+        options=options,
         locale=locale,
         default_option=default_option,
         placeholder=placeholder,
