@@ -61,9 +61,6 @@ class Dynoselect(rx.ComponentState):
     chained_options: str
     """ A string that concatenates all options for search purposes."""
 
-    _raw_options: list[dict[str, str]] = []
-    """ The unformatted options as given during initialization. """
-
     _KEY_LABEL = "label"
     _KEY_KEYWORDS = "keywords"
     _KEY_VALUE = "value"
@@ -88,21 +85,6 @@ class Dynoselect(rx.ComponentState):
             option[cls._KEY_LABEL].lower().contains(cls.search_phrase.lower()) |
             option[cls._KEY_KEYWORDS].lower().contains(cls.search_phrase.lower())
         )
-    
-    def update_chain(self):
-        self.chained_options = Option._SEARCH_DELIMITER.join(
-            chain(*[[e.label, e.keywords] for e in self.options])
-        )
-    
-    def format_options(self):
-        """ Format the options before display. """
-        self.options = [Option(**opt) for opt in self._raw_options]
-        self.update_chain()
-    
-    def set_selected_by_value(self, value: str):
-        """ Set the selected option by value. """
-        default = self.__class__.__fields__["selected"].default
-        self.selected = next((e for e in self.options if e.value == value), default)
         
     @classmethod
     def btntext(cls, child, icon: str, **props) -> rx.Component:
@@ -125,18 +107,17 @@ class Dynoselect(rx.ComponentState):
         indent: LiteralIndent,
         align: str,
         create_option: Optional[Dict[str, str]] = None,
-        modal: bool = False,
         on_select: Optional[Callable] = None,
         icon: str = None,
-        **props,
+        content_props: dict[str, str] = {},
+        root_props: dict[str, str] = {},
         ) -> rx.Component:
         """ Create the component. See dynoselect() function for more information.
         """
         size_radius = dict(size=size, radius=radius)
         opt_create = Option(**(create_option or {}))
-        props["on_mount"] = props.get("on_mount", cls.format_options)
 
-        cls.__fields__["selected"].default = default_option or cls._DEFAULT
+        cls.get_fields()["selected"].default = default_option or cls._DEFAULT
         
         def hoverable(child, idx: int, **props) -> rx.Component:
             btn = rx.button(
@@ -178,6 +159,10 @@ class Dynoselect(rx.ComponentState):
             )
 
             return rx.cond(cond, button, rx.fragment())
+        
+        on_open_auto_focus = content_props.pop(
+            "on_open_auto_focus", lambda *a: [cls.set_search_phrase("")]
+        )
         
         return rx.popover.root(
             rx.popover.trigger(
@@ -229,14 +214,14 @@ class Dynoselect(rx.ComponentState):
                     scrollbars="vertical",
                     class_name=f"pl-{padding} mb-{padding}",
                     radius=radius,
-                    height=height
+                    height=height,
                 ),
                 overflow="hidden",
-                padding="0"
+                padding="0",
+                on_open_auto_focus=on_open_auto_focus,
+                **content_props,
             ),
-            modal=modal,
-            on_open_change=cls.set_search_phrase(""),
-            **props
+            **root_props,
         )
 
 def dynoselect(
@@ -252,9 +237,10 @@ def dynoselect(
         indent: LiteralIndent = "6",
         align: str = "left",
         create_option: dict[str, str] | None = None,
-        modal: bool = False,
-        on_select: Optional[callable] = None,
-        **props
+        on_select: Optional[Callable] = None,
+        icon: str = None,
+        content_props: dict[str, str] = {},
+        root_props: dict[str, str] = {},
 )-> rx.Component:
     """Create a the select component. 
         
@@ -291,9 +277,6 @@ def dynoselect(
             can refer to the search phrase by using the "{}" placeholder in the
             label. For example, the label "Create new {}" would be displayed as
             "Create new apple" if the search phrase is "apple".    
-        modal: Directly passed on to PopoverRoot. If true, interaction on screen 
-            readers with other elements is disabled and only popover content 
-            is visible.
         on_select: Event handler that is called when the user selects an option. Note
             that the event handler is called even if the user selects the same value
             as before.
@@ -311,11 +294,13 @@ def dynoselect(
         indent=indent,
         align=align,
         create_option=create_option,
-        modal=modal,
         on_select=on_select,
-        **props,
+        icon=icon,
+        content_props=content_props,
+        root_props=root_props
     )
-    component.State._raw_options = options
+    component.State.get_fields()["options"].default = [Option(**opt) for opt in options]
+    component.State.get_fields()["chained_options"].default = Option.chain(options)
     return component
 
 
@@ -337,6 +322,9 @@ class Dynotimezone(Dynoselect):
     during app compilation.
     """
 
+    _raw_options: list[dict[str, str]] = []
+    """ The unformatted options as given during initialization. """
+
     def offset(self, canonical: str):
         """Return timezone names as UTC offset with represenative cities."""
         ref = datetime.now().astimezone(ZoneInfo(canonical))
@@ -345,28 +333,42 @@ class Dynotimezone(Dynoselect):
         minutes = int(offset % 3600 // 60)
         return f"UTC{hours:+03}:{minutes:02d}" 
     
+    def refresh(self):
+        self.options = self.format_options()
+        self.chained_options = Option.chain(self.options)
+    
     def format_options(self) -> list[dict[str, str]]:
         """ Modify options before display (e.g. to include recent information). 
         
         The default implementation will just use the options without modification.
         """
-        self.options = [Option(**opt) for opt in self._raw_options]
-        for opt in self.options:
-            opt.label = f"{opt.label} ({self.offset(opt.value)})" 
-        self.update_chain()   
+        options = [Option(**opt) for opt in self._raw_options]
+        for opt in options:
+            opt.label = f"{opt.label} ({self.offset(opt.value)})"  
+        return options 
+    
+    def initialize(self, value: str):
+        """ Set the selected option by value. """
+        default = self.get_fields()["selected"].default
+        self.refresh()      
+        self.selected = next((e for e in self.options if e.value == value), default)
     
     @classmethod
     def get_component(cls, **props):
         detect_timezone = rx.call_script(
             "Intl.DateTimeFormat().resolvedOptions().timeZone", 
-            callback=cls.set_selected_by_value
+            callback=cls.initialize
         )
+        content_props = props.pop("content_props", {})
 
-        props["on_mount"] = props.get(
-            "on_mount", lambda: [cls.format_options(), detect_timezone]
+        return super().get_component(
+            content_props={
+                **content_props, 
+                "on_mount": detect_timezone,
+                "on_open_auto_focus": lambda *a: [cls.set_search_phrase(""), cls.refresh()]
+            },
+            **props, 
         )
-
-        return super().get_component(**props)
         
 
 def dynotimezone(
@@ -381,10 +383,10 @@ def dynotimezone(
         padding: str = "2",
         indent: LiteralIndent = "6",
         align: str = "left",
-        modal: bool = False,
         on_select: Optional[callable] = None,
         icon: str = "globe",
-        **props
+        content_props: dict[str, str] = {},
+        root_props: dict[str, str] = {},
 )-> rx.Component:
     """Create a timezone select component. 
     
@@ -410,9 +412,6 @@ def dynotimezone(
             and works as normal indentation.
         align: The alignment of each option. Allowed values are "left", "center", and 
             "right".
-        modal: Directly passed on to PopoverRoot. If true, interaction on screen 
-            readers with other elements is disabled and only popover content 
-            is visible.
         on_select: Event handler that is called when the user selects an option. Note
             that the event handler is called even if the user selects the same value
             as before.
@@ -422,7 +421,6 @@ def dynotimezone(
     options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
 
     component = Dynotimezone.create(
-        locale=locale,
         default_option=default_option,
         placeholder=placeholder,
         search_placeholder=search_placeholder,
@@ -433,10 +431,10 @@ def dynotimezone(
         padding=padding,
         indent=indent,
         align=align,
-        modal=modal,
         on_select=on_select,
         icon=icon,
-        **props
+        content_props=content_props,
+        root_props=root_props
     )
     component.State._raw_options = options
     return component
@@ -454,10 +452,10 @@ def dynolanguage(
         padding: str = "2",
         indent: LiteralIndent = "6",
         align: str = "left",
-        modal: bool = False,
         on_select: Optional[callable] = None,
         icon: str = "languages",
-        **props
+        content_props: dict[str, str] = {},
+        root_props: dict[str, str] = {},
 )-> rx.Component:
     """Create a language select component.
 
@@ -484,9 +482,6 @@ def dynolanguage(
             and works as normal indentation.
         align: The alignment of each option. Allowed values are "left", "center", and 
             "right".
-        modal: Directly passed on to PopoverRoot. If true, interaction on screen 
-            readers with other elements is disabled and only popover content 
-            is visible.
         on_select: Event handler that is called when the user selects an option. Note
             that the event handler is called even if the user selects the same value
             as before.
@@ -496,7 +491,6 @@ def dynolanguage(
 
     return dynoselect(
         options=options,
-        locale=locale,
         default_option=default_option,
         placeholder=placeholder,
         search_placeholder=search_placeholder,
@@ -507,10 +501,10 @@ def dynolanguage(
         padding=padding,
         indent=indent,
         align=align,
-        modal=modal,
         on_select=on_select,
         icon=icon,
-        **props
+        content_props=content_props,
+        root_props=root_props
     )
 
 

@@ -15,23 +15,133 @@ class State(rx.State):
     pass
 
 def index() -> rx.Component:
-    return rx.center(
+    return rx.vstack(
         rx.theme_panel(),
-        dynoselect(
-            options,
-            placeholder="Select a color",
-            search_placeholder="Search for a color...",
-            #create_option={"value": "create", "label": "Create {}"}
+        rx.vstack(
+            rx.heading("Basic Component", size="4"),
+            rx.vstack(
+                rx.heading("Search", size="2"),
+                dynoselect(
+                    options,
+                    placeholder="Select a color",
+                    search_placeholder="Search for a color...",
+                ),
+                direction="column",
+                align="center",
+                spacing="3"
+            ),
+            rx.vstack(
+                rx.heading("Create Missing Option", size="2"),
+                dynoselect(
+                    options,
+                    placeholder="Select a color",
+                    search_placeholder="Search for a color...",
+                    create_option={"value": "custom", "label": 'Create "{}"'}
+                ),
+                direction="column",
+                align="center",
+                spacing="3"
+            ),
+            rx.vstack(
+                rx.heading("With Icon", size="2"),
+                dynoselect(
+                    options,
+                    placeholder="Select a color",
+                    search_placeholder="Search for a color...",
+                    icon="palette"
+                ),
+                direction="column",
+                align="center",
+                spacing="3"
+            ),
+            spacing="4",
+            align="center",
         ),
-        dynotimezone(
-            "en-US",
-            placeholder="Zeitzone", 
-            search_placeholder="Zeitzone suchen..."
+        rx.vstack(
+            rx.heading("Localized Components", size="4"),
+            rx.vstack(
+                rx.heading("Autonyms", size="2"),
+                rx.flex(
+                    dynolanguage(
+                        placeholder="Language", 
+                        search_placeholder="Search for a language..."
+                    ),
+                    direction="row",
+                    align="center",
+                    spacing="2"
+                ),
+                rx.heading("Locale en-US", size="2"),
+                rx.flex(
+                    dynotimezone(
+                        "en-US",
+                        placeholder="Timezone", 
+                        search_placeholder="Search timezone..."
+                    ),
+                    dynolanguage(
+                        "en-US",
+                        placeholder="Language", 
+                        search_placeholder="Search for a language..."
+                    ),
+                    direction="row",
+                    align="center",
+                    spacing="2"
+                ),
+                rx.heading("Locale de", size="2"),
+                rx.flex(
+                    dynotimezone(
+                        "de",
+                        placeholder="Zeitzone", 
+                        search_placeholder="Zeitzone suchen..."
+                    ),
+                    dynolanguage(
+                        "de",
+                        placeholder="Sprache", 
+                        search_placeholder="Sprache suchen..."
+                    ),
+                    direction="row",
+                    align="center",
+                    spacing="2"
+                ),
+                rx.heading("Locale fr", size="2"),
+                rx.flex(
+                    dynotimezone(
+                        "fr",
+                        placeholder="Fuseau horaire", 
+                        search_placeholder="Rechercher un fuseau horaire..."
+                    ),
+                    dynolanguage(
+                        "fr",
+                        placeholder="Langue", 
+                        search_placeholder="Rechercher une langue..."
+                    ),
+                    direction="row",
+                    align="center",
+                    spacing="2"
+                ),
+                rx.heading("Locale es", size="2"),
+                rx.flex(
+                    dynotimezone(
+                        "es",
+                        placeholder="Zona horaria", 
+                        search_placeholder="Buscar una zona horaria..."
+                    ),
+                    dynolanguage(
+                        "es",
+                        placeholder="Idioma", 
+                        search_placeholder="Buscar un idioma..."
+                    ),
+                    direction="row",
+                    align="center",
+                    spacing="2"
+                ),
+                align="center",
+                spacing="3"
+            ),
+            align="center",
+            spacing="4"
         ),
-        # dynolanguage(
-        #     placeholder="Sprache", 
-        #     search_placeholder="Sprache suchen..."
-        # )
+        spacing="9",
+        align="center"
     )
 
 # Add state and page to the app.

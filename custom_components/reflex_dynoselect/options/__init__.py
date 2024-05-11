@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Literal
+from typing import Literal, List
 import tarfile
 import io
 import json
+from itertools import chain
 
 TIMEZONE_OPTION_PATH = (Path(__file__).parent / "timezones.tar.gz").absolute()
 """Path to the timezone options archive."""
@@ -49,6 +50,12 @@ class Option(dict):
         label = self.label.format(*args, **kwargs)
         keywords = self.keywords.format(*args, **kwargs)
         return Option(label=label, value=value, keywords=keywords)
+    
+    @classmethod
+    def chain(cls, options: List["Option"]) -> str:
+        options = [Option(**opt) for opt in options]
+        tokens = chain.from_iterable([[e.label, e.keywords] for e in options])
+        return cls._SEARCH_DELIMITER.join(tokens)
     
 
 class LocalizedOptions:
