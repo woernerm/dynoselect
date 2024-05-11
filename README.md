@@ -1,9 +1,19 @@
 # Dynoselect
 
-This is a select component for [Reflex](https://reflex.dev) which allows users to 
-search for options and create new ones:
+Dynoselect is a collection of feature-rich select components for 
+[Reflex](https://reflex.dev). The base component allows users to search for options and 
+create new ones:
 
-<img src="data/demo.gif" height="400px">
+<img src="data/demo.gif" height="300px">
+
+In addition, there are select components for common use-cases like timezone and 
+language selectors. The options of these are available in over 100 languages (and over 
+400 language variants!) so you don't have to translate them.
+
+The timezone component automatically detects the user's timezone and updates the offset 
+from UTC depending on whether daylight saving time is in effect:
+
+<img src="data/timezone.gif" height="480px">
 
 The following example shows how to use the component within a Reflex project:
 

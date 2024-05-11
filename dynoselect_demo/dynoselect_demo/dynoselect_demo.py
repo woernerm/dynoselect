@@ -144,8 +144,21 @@ def index() -> rx.Component:
         align="center"
     )
 
+def single() -> rx.Component:
+    return rx.vstack(
+        rx.spacer(),
+        dynotimezone(
+            "en-US",
+            placeholder="Timezone", 
+            search_placeholder="Search timezone..."
+        ),
+        align="center",
+        spacing="4"
+    )
+
 # Add state and page to the app.
 app = rx.App(
 
 )
 app.add_page(index)
+app.add_page(single)
