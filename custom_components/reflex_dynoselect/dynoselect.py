@@ -280,6 +280,11 @@ def dynoselect(
         on_select: Event handler that is called when the user selects an option. Note
             that the event handler is called even if the user selects the same value
             as before.
+        icon: The name of the lucide icon to display next to the selected option.
+        content_props: Additional properties that are passed on to the 
+            reflex.popover.content component used by Dynoselect.
+        root_props: Additional properties that are passed on to the 
+            reflex.popover.root component used by Dynoselect.
     """
 
     component = Dynoselect.create(

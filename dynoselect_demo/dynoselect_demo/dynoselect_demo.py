@@ -147,10 +147,9 @@ def index() -> rx.Component:
 def single() -> rx.Component:
     return rx.vstack(
         rx.spacer(),
-        dynotimezone(
-            "en-US",
-            placeholder="Timezone", 
-            search_placeholder="Search timezone..."
+        dynolanguage(
+            placeholder="Language", 
+            search_placeholder="Search for a language..."
         ),
         align="center",
         spacing="4"

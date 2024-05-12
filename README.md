@@ -1,21 +1,43 @@
 # Dynoselect
 
-Dynoselect is a collection of feature-rich select components for 
-[Reflex](https://reflex.dev). The base component allows users to search for options and 
-create new ones:
+Dynoselect is a collection of select components for [Reflex](https://reflex.dev). 
+The base component allows users to search for options and create new ones:
 
 <img src="data/demo.gif" height="300px">
 
-In addition, there are select components for common use-cases like timezone and 
-language selectors. The options of these are available in over 100 languages (and over 
-400 language variants!) so you don't have to translate them.
+In addition, there are specialized components for standard use-cases like timezone and 
+language selection. The options listed by them are available in over 100 
+languages (and over 400 language variants!) so you don't have to translate them yourself.
+Just specify the [IETF language tag](https://en.wikipedia.org/wiki/IETF_language_tag) 
+you would like to use, e.g. _"de"_ for German (as spoken in Germany) or _"en-GB"_ for 
+English (as spoken in the United Kingdom).
 
-The timezone component automatically detects the user's timezone and updates the offset 
-from UTC depending on whether daylight saving time is in effect:
+There is a special "locale" available for the language select component: Displaying 
+each language option in the respective language itself. For this, just specify 
+`None` for the `locale` parameter of the component:
+
+<img src="data/language.gif" height="480px">
+
+Selecting one's own time zone is a surprisingly difficult task for most users. 
+This has been studied quite extensively in [this Article](https://www.nngroup.com/articles/time-zone-selectors/).
+The time zone selection component makes this task as simple as possible.
+
+Not having to select your time zone at all is of course the most user-friendly choice. 
+Therefore, the component tries to automatically detect the user's time zone. So, the user only
+has to manually select an option if the result turns out to be incorrect. 
+
+Following the advice given in the above article, the component lists time zones as 
+__city, country (UTC offset)__. This is because most people can name a city or country 
+representative of their time zone. The offset is given last, because people expect the 
+list to be ordered alphabetically and often do not know their offset anyway. However,
+it adds some information for confirmation. The displayed offset takes into 
+account whether daylight saving time is currently in effect and is updated every time 
+the dropdown is opened.
 
 <img src="data/timezone.gif" height="480px">
 
-The following example shows how to use the component within a Reflex project:
+
+The following example shows how to use the components within a Reflex project:
 
 ```py
 import reflex as rx
@@ -71,9 +93,8 @@ arbitrary keys to the dictionary to store additional information about an option
     ```py
     {"value": "ocean", "label": "Ocean", "keywords": ["blue", "water"]}
     ```
-    allows to input _"water"_ in order to search for the color _Ocean_ as shown below:
+    allows to input _"water"_ or _"blue"_ in order to search for the color _Ocean_.
 
-    <img src="data/keyword-search.jpg" height="300px">
 - `default_option`: The default option to select. By default, no option is selected.
 - `placeholder`: The placeholder text that is shown when no option is selected.
 - `search_placeholder`: The placeholder text for the search input field.
@@ -106,10 +127,15 @@ arbitrary keys to the dictionary to store additional information about an option
     The `label` given in the example above would be displayed as _Create new "Apple"_ if 
     the search phrase is _"Apple"_. Regarding the `value` key, you can use any value you 
     like.   
-- `modal`: Directly passed on to PopoverRoot. If true, interaction on screen 
-    readers with other elements is disabled and only popover content is visible.
 - `on_select`: Event handler that is called when the user selects an option. Note
     that the event handler is called even if the user selects the same value as before.
+- `icon`: The name of the [lucide icon](https://lucide.dev/icons/) to display.
+- `content_props`: Additional properties that are passed on to the 
+    [reflex.popover.content](https://reflex.dev/docs/library/overlay/popover/#popovercontent) 
+    component used by Dynoselect.
+- `root_props`: Additional properties that are passed on to the 
+    [reflex.popover.root](https://reflex.dev/docs/library/overlay/popover/#popoverroot) 
+    component used by Dynoselect.
 
 ## Installation
 The component has been tested without activating [Tailwind](https://tailwindcss.com/) 
