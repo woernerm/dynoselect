@@ -70,7 +70,7 @@ def index() -> rx.Component:
                     align="center",
                     spacing="2"
                 ),
-                rx.heading("Locales filtered in advance", size="2"),
+                rx.heading("Locales Filtered in Advance", size="2"),
                 rx.flex(
                     dynolanguage(
                         placeholder="Language", 
@@ -158,7 +158,16 @@ def index() -> rx.Component:
 
 def single() -> rx.Component:
     return rx.vstack(
-        rx.spacer(),
+        dynoselect(
+            options,
+            placeholder="Select a color",
+            search_placeholder="Search for a color",
+        ),
+        dynotimezone(
+            "en",
+            placeholder="Timezone", 
+            search_placeholder="Search timezone..."
+        ),        
         dynolanguage(
             placeholder="Language", 
             search_placeholder="Search for a language..."

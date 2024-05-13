@@ -22,17 +22,17 @@ Selecting one's own time zone is a surprisingly difficult task for most users.
 This has been studied quite extensively in [this Article](https://www.nngroup.com/articles/time-zone-selectors/).
 The time zone selection component makes this task as simple as possible.
 
-Not having to select your time zone at all is of course the most user-friendly choice. 
-Therefore, the component tries to automatically detect the user's time zone. So, the user only
-has to manually select an option if the result turns out to be incorrect. 
+Not having to select your time zone at all is of course most user-friendly. 
+Therefore, the component tries to automatically detect the user's time zone. Manual
+selection is only necessary if the result turns out to be incorrect. 
 
 Following the advice given in the above article, the component lists time zones as 
 __city, country (UTC offset)__. This is because most people can name a city or country 
 representative of their time zone. The offset is given last, because people expect the 
-list to be ordered alphabetically and often do not know their offset anyway. However,
-it adds some information for confirmation. The displayed offset takes into 
-account whether daylight saving time is currently in effect and is updated every time 
-the dropdown is opened.
+list to be ordered alphabetically and often do not know their offset anyway. It mainly
+serves as confirmation. The offset displayed takes into 
+account whether daylight saving time is currently in effect in each listed time zone and 
+is updated every time the dropdown is opened.
 
 <img src="data/timezone.gif" height="480px">
 
@@ -41,7 +41,7 @@ The following example shows how to use the components within a Reflex project:
 
 ```py
 import reflex as rx
-from reflex_dynoselect import dynoselect
+from reflex_dynoselect import dynoselect, dynotimezone, dynolanguage
 
 options = [
     {"value": "ocean", "label": "Ocean"},
@@ -57,13 +57,24 @@ class State(rx.State):
     pass
 
 def index() -> rx.Component:
-    return rx.center(
-        rx.theme_panel(),
+    return rx.vstack(
         dynoselect(
             options,
             placeholder="Select a color",
             search_placeholder="Search for a color",
         ),
+        dynotimezone(
+            "en",
+            placeholder="Timezone", 
+            search_placeholder="Search timezone..."
+        ),        
+        dynolanguage(
+            "en",
+            placeholder="Language", 
+            search_placeholder="Search for a language..."
+        ),
+        align="center",
+        spacing="4"
     )
 
 # Add state and page to the app.
@@ -84,11 +95,11 @@ arbitrary keys to the dictionary to store additional information about an option
 ### Parameters
 - `options`: A list of dictionaries containing the options. The dictionary
     must contain a `label` and a `value` key with strings as values. The value of the
-    `label` key is displayed to the user while the `value` key can be used for internal
-    identifiers. Optionally, one can provide a `keywords` key to include alternative 
+    `label` key is displayed to the user while the `value` key can be used as internal
+    identifier. Optionally, one can provide a `keywords` key to include alternative 
     phrases that are included in the search but not displayed to the user. This is 
     intended to improve the search tolerance so that users can find options even 
-    if synonyms are used. You may provide keywords either as a string or as a list
+    if they enter synonyms. You may provide keywords either as a string or as a list
     of strings. For example, the option
     ```py
     {"value": "ocean", "label": "Ocean", "keywords": ["blue", "water"]}
@@ -106,16 +117,16 @@ arbitrary keys to the dictionary to store additional information about an option
 - `height`: The height of the component menu. Can be given as a CSS value like "10rem" 
     or "100%".
 - `padding`: The padding around the border of the select menu.
-- `indent`: The indentation of the select menu. If `align` is chosen to be "center", the 
+- `indent`: The indentation of the select menu. If "center" is given, the 
     indentation is applied horizontally to both sides and therefore acts as padding. 
     Otherwise, it is applied to one side only and works as indentation.
 - `align`: The alignment of the options. Allowed values are "left", "center", and 
     "right".
 - `create_option`: The option dictionary to create a new entry. If `create_option` is 
-    None, the feature is deactivated. If the option is a dictionary, it determines the 
-    `value` and `label` of the create option. You may either provide a static text
-    or refer to the current search phrase by using "{}" as placeholder in the
-    `label`. For example:
+    None, the feature is deactivated. If the option is a dictionary, it specifies the 
+    `value` and `label` attributes used for the create option. You may either provide a 
+    static text or refer to the current search phrase by using "{}" as placeholder. 
+    For example:
     ```py
     dynoselect(
         options,
@@ -142,7 +153,7 @@ arbitrary keys to the dictionary to store additional information about an option
 
 #### Additional options for `dynolanguage`:
 - `locale`: The locale to use for the displayed language options. If None, the names 
-    of all languages are displayed in the respective language itself.
+    of all languages are displayed in the respective languages themselves.
 - `only` : Optional iterable with [IETF language tags](https://en.wikipedia.org/wiki/IETF_language_tag) 
     to display. Default is None, so that all available language options are displayed. 
     Example:
@@ -158,11 +169,11 @@ arbitrary keys to the dictionary to store additional information about an option
     French (as spoken in France), and French (as spoken in Switzerland).
 
 ## Installation
-The component has been tested without activating [Tailwind](https://tailwindcss.com/) 
+The components have been tested without activating [Tailwind](https://tailwindcss.com/) 
 explicitly. However, if the component looks strange, you may want to activate it as 
 described in the [official documentation](https://reflex.dev/docs/styling/overview/#tailwind).
 
-The component can be installed using the following command:
+The components can be installed using the following command:
 ```bash
 pip install reflex-dynoselect
 ```
