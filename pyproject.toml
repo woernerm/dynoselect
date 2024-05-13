@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reflex-dynoselect"
-version = "0.0.1"
-description = "Reflex select component which allows the user to search for options and create new ones."
+version = "0.1.0"
+description = "Generic and specialized Reflex select components. Users can search for options and create new ones. Includes specialized time zone and language select components in over 100 languages."
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.8"
-authors = [{ name = "", email = "woernerm@protonmail.com" }]
-keywords = ["reflex","reflex-custom-components", "select"]
+authors = [{ name = "Marcus Wörner", email = "woernerm@protonmail.com" }]
+keywords = ["reflex","reflex-custom-components", "select", "timezone", "time zone", "locale", "language", "language select"]
 
 dependencies = ["reflex>=0.4.6"]
 
