@@ -70,15 +70,27 @@ def index() -> rx.Component:
                     align="center",
                     spacing="2"
                 ),
-                rx.heading("Locale en-US", size="2"),
+                rx.heading("Locales filtered in advance", size="2"),
+                rx.flex(
+                    dynolanguage(
+                        placeholder="Language", 
+                        search_placeholder="Search for a language...",
+                        only={"de", "en", "en-GB", "es", "fr", "fr-CH"},
+                        height="10rem"
+                    ),
+                    direction="row",
+                    align="center",
+                    spacing="2"
+                ),
+                rx.heading("Locale en", size="2"),
                 rx.flex(
                     dynotimezone(
-                        "en-US",
+                        "en",
                         placeholder="Timezone", 
                         search_placeholder="Search timezone..."
                     ),
                     dynolanguage(
-                        "en-US",
+                        "en",
                         placeholder="Language", 
                         search_placeholder="Search for a language..."
                     ),

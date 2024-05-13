@@ -1,6 +1,6 @@
 """Reflex custom component Dynoselect."""
 
-from typing import List, Dict, Literal, Optional, Callable
+from typing import List, Dict, Literal, Optional, Callable, Iterable
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from itertools import chain
@@ -422,7 +422,6 @@ def dynotimezone(
             as before.
         icon: The lucide icon to display next to the selected option.
     """
-
     options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
 
     component = Dynotimezone.create(
@@ -461,6 +460,7 @@ def dynolanguage(
         icon: str = "languages",
         content_props: dict[str, str] = {},
         root_props: dict[str, str] = {},
+        only: Iterable[str] = None
 )-> rx.Component:
     """Create a language select component.
 
@@ -491,8 +491,26 @@ def dynolanguage(
             that the event handler is called even if the user selects the same value
             as before.
         icon: The lucide icon to display next to the selected option.
+        only: Optional iterable with languages to display. Default: Show all available
+            language options. For example:
+            ```py
+            dynolanguage(
+                placeholder="Language", 
+                search_placeholder="Search for a language...",
+                only={"de", "en-GB", "en", "fr", "es"},
+            ),
+            ```
+            This will display options for German (as spoken in Germany), English (as
+            spoken in the UK), English (as spoken in the United States), Spanish (as
+            spoken in Spain).
     """
     options = LocalizedOptions.load(LOCALE_OPTION_PATH, locale or NONE_LOCALE)
+
+    only = set(only) if only else set()
+    missing = only - {e.value for e in options}
+    if missing:
+        raise LookupError(f"Locale(s) {', '.join(missing)} not available.")
+    options = [e for e in options if not only or e.value in only]
 
     return dynoselect(
         options=options,

@@ -5,7 +5,7 @@ The base component allows users to search for options and create new ones:
 
 <img src="data/demo.gif" height="300px">
 
-In addition, there are specialized components for standard use-cases like timezone and 
+In addition, there are specialized components for standard use-cases like time zone and 
 language selection. The options listed by them are available in over 100 
 languages (and over 400 language variants!) so you don't have to translate them yourself.
 Just specify the [IETF language tag](https://en.wikipedia.org/wiki/IETF_language_tag) 
@@ -136,6 +136,26 @@ arbitrary keys to the dictionary to store additional information about an option
 - `root_props`: Additional properties that are passed on to the 
     [reflex.popover.root](https://reflex.dev/docs/library/overlay/popover/#popoverroot) 
     component used by Dynoselect.
+
+#### Additional options for `dynotimezone`:
+- `locale`: The locale to display the time zone options in. 
+
+#### Additional options for `dynolanguage`:
+- `locale`: The locale to use for the displayed language options. If None, the names 
+    of all languages are displayed in the respective language itself.
+- `only` : Optional iterable with [IETF language tags](https://en.wikipedia.org/wiki/IETF_language_tag) 
+    to display. Default is None, so that all available language options are displayed. 
+    Example:
+    ```py
+    dynolanguage(
+        placeholder="Language", 
+        search_placeholder="Search for a language...",
+        only={"de", "en", "en-GB", "es", "fr", "fr-CH"},
+    ),
+    ```
+    This will display options for German (as spoken in Germany), English (as spoken in 
+    the United States), English (as spoken in the UK), Spanish (as spoken in Spain), 
+    French (as spoken in France), and French (as spoken in Switzerland).
 
 ## Installation
 The component has been tested without activating [Tailwind](https://tailwindcss.com/) 
