@@ -55,9 +55,6 @@ class Dynoselect(rx.ComponentState):
     the dictionary to store additional information about an option.
     """
 
-    options: list[dict[str, str]] = []
-    """ The formatted options available to the user. """
-
     chained_options: str
     """ A string that concatenates all options for search purposes."""
 
@@ -69,22 +66,6 @@ class Dynoselect(rx.ComponentState):
     """The size of the icon in pixels."""
 
     _COLOR_PLACEHOLDER = rx.color("gray", 10)
-    
-    @classmethod
-    def client_search(cls, option: Option) -> rx.Var[bool]:
-        """ Search for the search phrase in the given keywords and label.
-
-        The option's value is not searched to avoid awkward results in case the value
-        has nothing to do with what is displayed to the user. If the value shall be
-        included in the search, it should be added to the option's keywords.
-        
-        Returns:
-            A Boolean reflex variable that is true if the search phrase is found.
-        """        
-        return (
-            option[cls._KEY_LABEL].lower().contains(cls.search_phrase.lower()) |
-            option[cls._KEY_KEYWORDS].lower().contains(cls.search_phrase.lower())
-        )
         
     @classmethod
     def btntext(cls, child, icon: str, **props) -> rx.Component:
@@ -96,6 +77,7 @@ class Dynoselect(rx.ComponentState):
     @classmethod
     def get_component(
         cls, 
+        options: List[Dict[str, str]],
         default_option: Dict[str, str], 
         placeholder: str,
         search_placeholder: str,
@@ -130,7 +112,7 @@ class Dynoselect(rx.ComponentState):
             )
             return rx.popover.close(btn)
         
-        def entry(cond, option: Option, idx: int, create: bool = False) -> rx.Component:
+        def entry(cond, option: Dict[str, str], idx: int, create: bool = False) -> rx.Component:
             # Entries are either a text box or a solid button. This mapping ensures they
             # have the same height to avoid flicker effects when hovering over them.
             btn_height = {"1": "6", "2": "8", "3": "10", "4": "12"}
@@ -142,8 +124,8 @@ class Dynoselect(rx.ComponentState):
                 handler = lambda: [cls.set_selected(select), on_select(select)]
 
             button = hoverable(
-                rx.text(
-                    option[cls._KEY_LABEL], 
+                rx.text(    
+                    option["label"], 
                     trim="both", 
                     align=align,
                     size=size, 
@@ -197,14 +179,14 @@ class Dynoselect(rx.ComponentState):
                 rx.scroll_area(
                     rx.flex(
                         rx.foreach(
-                            cls.options, 
-                            lambda opt, i: entry(cls.client_search(opt), opt, i)
+                            options, 
+                            lambda opt, i: entry(opt["label"].lower().contains(cls.search_phrase.lower()), opt, i)
                         ),
                         (
                             entry(
                                 ~cls.chained_options.lower().contains(cls.search_phrase.lower()), 
                                 opt_create.format(cls.search_phrase), 
-                                cls.options.length(), 
+                                10, 
                                 True
                             ) if create_option else rx.fragment()
                         ),
@@ -288,6 +270,7 @@ def dynoselect(
     """
 
     component = Dynoselect.create(
+        options=options,
         default_option=default_option,
         placeholder=placeholder,
         search_placeholder=search_placeholder,
@@ -304,231 +287,229 @@ def dynoselect(
         content_props=content_props,
         root_props=root_props
     )
-    component.State.get_fields()["options"].default = [Option(**opt) for opt in options]
-    component.State.get_fields()["chained_options"].default = Option.chain(options)
     return component
 
 
 
-class Dynotimezone(Dynoselect):
-    """A select component for timezones.
+# class Dynotimezone(Dynoselect):
+#     """A select component for timezones.
     
-    The component provides an extensive list of timezones that are translated into the
-    selected locale. By default, the component tries to detect the user's timezone and
-    select it. If the detection fails, the given default option is used or, if no
-    default option is given, no timezone is selected. 
+#     The component provides an extensive list of timezones that are translated into the
+#     selected locale. By default, the component tries to detect the user's timezone and
+#     select it. If the detection fails, the given default option is used or, if no
+#     default option is given, no timezone is selected. 
 
-    Timezones are given as a representative city and country as well as the UTC offset.
-    The offset is calculated ony the fly on page load in order to accomate for changes
-    in offset due to daylight saving time. 
+#     Timezones are given as a representative city and country as well as the UTC offset.
+#     The offset is calculated ony the fly on page load in order to accomate for changes
+#     in offset due to daylight saving time. 
 
-    Translations have been precomputed and stored in multiple JSON files that are
-    themeselves stored in a tar.gz archive. This avoids negative performance impacts
-    during app compilation.
-    """
+#     Translations have been precomputed and stored in multiple JSON files that are
+#     themeselves stored in a tar.gz archive. This avoids negative performance impacts
+#     during app compilation.
+#     """
 
-    _raw_options: list[dict[str, str]] = []
-    """ The unformatted options as given during initialization. """
+#     _raw_options: list[dict[str, str]] = []
+#     """ The unformatted options as given during initialization. """
 
-    def offset(self, canonical: str):
-        """Return timezone names as UTC offset with represenative cities."""
-        ref = datetime.now().astimezone(ZoneInfo(canonical))
-        offset = ref.utcoffset().total_seconds()
-        hours = int(offset // 3600)
-        minutes = int(offset % 3600 // 60)
-        return f"UTC{hours:+03}:{minutes:02d}" 
+#     def offset(self, canonical: str):
+#         """Return timezone names as UTC offset with represenative cities."""
+#         ref = datetime.now().astimezone(ZoneInfo(canonical))
+#         offset = ref.utcoffset().total_seconds()
+#         hours = int(offset // 3600)
+#         minutes = int(offset % 3600 // 60)
+#         return f"UTC{hours:+03}:{minutes:02d}" 
     
-    def refresh(self):
-        self.options = self.format_options()
-        self.chained_options = Option.chain(self.options)
+#     def refresh(self):
+#         self.options = self.format_options()
+#         self.chained_options = Option.chain(self.options)
     
-    def format_options(self) -> list[dict[str, str]]:
-        """ Modify options before display (e.g. to include recent information). 
+#     def format_options(self) -> list[dict[str, str]]:
+#         """ Modify options before display (e.g. to include recent information). 
         
-        The default implementation will just use the options without modification.
-        """
-        options = [Option(**opt) for opt in self._raw_options]
-        for opt in options:
-            opt.label = f"{opt.label} ({self.offset(opt.value)})"  
-        return options 
+#         The default implementation will just use the options without modification.
+#         """
+#         options = [Option(**opt) for opt in self._raw_options]
+#         for opt in options:
+#             opt.label = f"{opt.label} ({self.offset(opt.value)})"  
+#         return options 
     
-    def initialize(self, value: str):
-        """ Set the selected option by value. """
-        default = self.get_fields()["selected"].default
-        self.refresh()      
-        self.selected = next((e for e in self.options if e.value == value), default)
+#     def initialize(self, value: str):
+#         """ Set the selected option by value. """
+#         default = self.get_fields()["selected"].default
+#         self.refresh()      
+#         self.selected = next((e for e in self.options if e.value == value), default)
     
-    @classmethod
-    def get_component(cls, **props):
-        detect_timezone = rx.call_script(
-            "Intl.DateTimeFormat().resolvedOptions().timeZone", 
-            callback=cls.initialize
-        )
-        content_props = props.pop("content_props", {})
+#     @classmethod
+#     def get_component(cls, **props):
+#         detect_timezone = rx.call_script(
+#             "Intl.DateTimeFormat().resolvedOptions().timeZone", 
+#             callback=cls.initialize
+#         )
+#         content_props = props.pop("content_props", {})
 
-        return super().get_component(
-            content_props={
-                **content_props, 
-                "on_mount": detect_timezone,
-                "on_open_auto_focus": lambda *a: [cls.set_search_phrase(""), cls.refresh()]
-            },
-            **props, 
-        )
+#         return super().get_component(
+#             content_props={
+#                 **content_props, 
+#                 "on_mount": detect_timezone,
+#                 "on_open_auto_focus": lambda *a: [cls.set_search_phrase(""), cls.refresh()]
+#             },
+#             **props, 
+#         )
         
 
-def dynotimezone(
-        locale: str,
-        default_option: Dict[str, str] = None, 
-        placeholder: str | None = None,
-        search_placeholder: str | None = None,
-        size: LiteralTextFieldSize = "2",
-        weight: LiteralTextWeight = "regular",
-        radius: LiteralRadius | None = None,
-        height: str = "20rem",
-        padding: str = "2",
-        indent: LiteralIndent = "6",
-        align: str = "left",
-        on_select: Optional[callable] = None,
-        icon: str = "globe",
-        content_props: dict[str, str] = {},
-        root_props: dict[str, str] = {},
-)-> rx.Component:
-    """Create a timezone select component. 
+# def dynotimezone(
+#         locale: str,
+#         default_option: Dict[str, str] = None, 
+#         placeholder: str | None = None,
+#         search_placeholder: str | None = None,
+#         size: LiteralTextFieldSize = "2",
+#         weight: LiteralTextWeight = "regular",
+#         radius: LiteralRadius | None = None,
+#         height: str = "20rem",
+#         padding: str = "2",
+#         indent: LiteralIndent = "6",
+#         align: str = "left",
+#         on_select: Optional[callable] = None,
+#         icon: str = "globe",
+#         content_props: dict[str, str] = {},
+#         root_props: dict[str, str] = {},
+# )-> rx.Component:
+#     """Create a timezone select component. 
     
-    Args:
-        locale: The locale to use for the timezone names.
-        default_option: The default option to select. By default, the component will
-            try to detect the user's timezone and select it. If the detection fails,
-            the default option is used.
-        placeholder: The placeholder text for the select component that is shown
-            when no option is selected.
-        search_placeholder: The placeholder text for the search input field.
-        size: Relative size of the component. Allowed values are "1", "2", and "3".
-        weight: The weight of the text. Allowed values are "none", "light", 
-            "regular", "medium", and "bold".
-        radius: The radius of the select component. Allowed values are "none",
-            "small", "medium", "large", and "full".
-        height: The height of the select component. Can be given as a CSS value
-            like "10rem" or "100%".
-        padding: The padding around the border of the select component.
-        indent: The indentation of the select component. If align is chosen to be
-            "center", the indentation is applied horizontally to both sides and
-            therefore acts as padding. Otherwise, it is applied to one side only
-            and works as normal indentation.
-        align: The alignment of each option. Allowed values are "left", "center", and 
-            "right".
-        on_select: Event handler that is called when the user selects an option. Note
-            that the event handler is called even if the user selects the same value
-            as before.
-        icon: The lucide icon to display next to the selected option.
-    """
-    options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
+#     Args:
+#         locale: The locale to use for the timezone names.
+#         default_option: The default option to select. By default, the component will
+#             try to detect the user's timezone and select it. If the detection fails,
+#             the default option is used.
+#         placeholder: The placeholder text for the select component that is shown
+#             when no option is selected.
+#         search_placeholder: The placeholder text for the search input field.
+#         size: Relative size of the component. Allowed values are "1", "2", and "3".
+#         weight: The weight of the text. Allowed values are "none", "light", 
+#             "regular", "medium", and "bold".
+#         radius: The radius of the select component. Allowed values are "none",
+#             "small", "medium", "large", and "full".
+#         height: The height of the select component. Can be given as a CSS value
+#             like "10rem" or "100%".
+#         padding: The padding around the border of the select component.
+#         indent: The indentation of the select component. If align is chosen to be
+#             "center", the indentation is applied horizontally to both sides and
+#             therefore acts as padding. Otherwise, it is applied to one side only
+#             and works as normal indentation.
+#         align: The alignment of each option. Allowed values are "left", "center", and 
+#             "right".
+#         on_select: Event handler that is called when the user selects an option. Note
+#             that the event handler is called even if the user selects the same value
+#             as before.
+#         icon: The lucide icon to display next to the selected option.
+#     """
+#     options = LocalizedOptions.load(TIMEZONE_OPTION_PATH, locale)
 
-    component = Dynotimezone.create(
-        default_option=default_option,
-        placeholder=placeholder,
-        search_placeholder=search_placeholder,
-        size=size,
-        weight=weight,
-        radius=radius,
-        height=height,
-        padding=padding,
-        indent=indent,
-        align=align,
-        on_select=on_select,
-        icon=icon,
-        content_props=content_props,
-        root_props=root_props
-    )
-    component.State._raw_options = options
-    return component
+#     component = Dynotimezone.create(
+#         default_option=default_option,
+#         placeholder=placeholder,
+#         search_placeholder=search_placeholder,
+#         size=size,
+#         weight=weight,
+#         radius=radius,
+#         height=height,
+#         padding=padding,
+#         indent=indent,
+#         align=align,
+#         on_select=on_select,
+#         icon=icon,
+#         content_props=content_props,
+#         root_props=root_props
+#     )
+#     component.State._raw_options = options
+#     return component
     
 
-def dynolanguage(
-        locale: str = None,
-        default_option: Dict[str, str] = None, 
-        placeholder: str | None = None,
-        search_placeholder: str | None = None,
-        size: LiteralTextFieldSize = "2",
-        weight: LiteralTextWeight = "regular",
-        radius: LiteralRadius | None = None,
-        height: str = "20rem",
-        padding: str = "2",
-        indent: LiteralIndent = "6",
-        align: str = "left",
-        on_select: Optional[callable] = None,
-        icon: str = "languages",
-        content_props: dict[str, str] = {},
-        root_props: dict[str, str] = {},
-        only: Iterable[str] = None
-)-> rx.Component:
-    """Create a language select component.
+# def dynolanguage(
+#         locale: str = None,
+#         default_option: Dict[str, str] = None, 
+#         placeholder: str | None = None,
+#         search_placeholder: str | None = None,
+#         size: LiteralTextFieldSize = "2",
+#         weight: LiteralTextWeight = "regular",
+#         radius: LiteralRadius | None = None,
+#         height: str = "20rem",
+#         padding: str = "2",
+#         indent: LiteralIndent = "6",
+#         align: str = "left",
+#         on_select: Optional[callable] = None,
+#         icon: str = "languages",
+#         content_props: dict[str, str] = {},
+#         root_props: dict[str, str] = {},
+#         only: Iterable[str] = None
+# )-> rx.Component:
+#     """Create a language select component.
 
-    Args:
-        locale: The locale to use for the language names. If None, each language
-            is displayed in its own respective locale.
-        default_option: The default option to select. By default, the component will
-            try to detect the user's locale and select it. If the detection fails,
-            the default option is used.
-        placeholder: The placeholder text for the select component that is shown
-            when no option is selected.
-        search_placeholder: The placeholder text for the search input field.
-        size: Relative size of the component. Allowed values are "1", "2", and "3".
-        weight: The weight of the text. Allowed values are "none", "light", 
-            "regular", "medium", and "bold".
-        radius: The radius of the select component. Allowed values are "none",
-            "small", "medium", "large", and "full".
-        height: The height of the select component. Can be given as a CSS value
-            like "10rem" or "100%".
-        padding: The padding around the border of the select component.
-        indent: The indentation of the select component. If align is chosen to be
-            "center", the indentation is applied horizontally to both sides and
-            therefore acts as padding. Otherwise, it is applied to one side only
-            and works as normal indentation.
-        align: The alignment of each option. Allowed values are "left", "center", and 
-            "right".
-        on_select: Event handler that is called when the user selects an option. Note
-            that the event handler is called even if the user selects the same value
-            as before.
-        icon: The lucide icon to display next to the selected option.
-        only: Optional iterable with languages to display. Default: Show all available
-            language options. For example:
-            ```py
-            dynolanguage(
-                placeholder="Language", 
-                search_placeholder="Search for a language...",
-                only={"de", "en-GB", "en", "fr", "es"},
-            ),
-            ```
-            This will display options for German (as spoken in Germany), English (as
-            spoken in the UK), English (as spoken in the United States), Spanish (as
-            spoken in Spain).
-    """
-    options = LocalizedOptions.load(LOCALE_OPTION_PATH, locale or NONE_LOCALE)
+#     Args:
+#         locale: The locale to use for the language names. If None, each language
+#             is displayed in its own respective locale.
+#         default_option: The default option to select. By default, the component will
+#             try to detect the user's locale and select it. If the detection fails,
+#             the default option is used.
+#         placeholder: The placeholder text for the select component that is shown
+#             when no option is selected.
+#         search_placeholder: The placeholder text for the search input field.
+#         size: Relative size of the component. Allowed values are "1", "2", and "3".
+#         weight: The weight of the text. Allowed values are "none", "light", 
+#             "regular", "medium", and "bold".
+#         radius: The radius of the select component. Allowed values are "none",
+#             "small", "medium", "large", and "full".
+#         height: The height of the select component. Can be given as a CSS value
+#             like "10rem" or "100%".
+#         padding: The padding around the border of the select component.
+#         indent: The indentation of the select component. If align is chosen to be
+#             "center", the indentation is applied horizontally to both sides and
+#             therefore acts as padding. Otherwise, it is applied to one side only
+#             and works as normal indentation.
+#         align: The alignment of each option. Allowed values are "left", "center", and 
+#             "right".
+#         on_select: Event handler that is called when the user selects an option. Note
+#             that the event handler is called even if the user selects the same value
+#             as before.
+#         icon: The lucide icon to display next to the selected option.
+#         only: Optional iterable with languages to display. Default: Show all available
+#             language options. For example:
+#             ```py
+#             dynolanguage(
+#                 placeholder="Language", 
+#                 search_placeholder="Search for a language...",
+#                 only={"de", "en-GB", "en", "fr", "es"},
+#             ),
+#             ```
+#             This will display options for German (as spoken in Germany), English (as
+#             spoken in the UK), English (as spoken in the United States), Spanish (as
+#             spoken in Spain).
+#     """
+#     options = LocalizedOptions.load(LOCALE_OPTION_PATH, locale or NONE_LOCALE)
 
-    only = set(only) if only else set()
-    missing = only - {e.value for e in options}
-    if missing:
-        raise LookupError(f"Locale(s) {', '.join(missing)} not available.")
-    options = [e for e in options if not only or e.value in only]
+#     only = set(only) if only else set()
+#     missing = only - {e.value for e in options}
+#     if missing:
+#         raise LookupError(f"Locale(s) {', '.join(missing)} not available.")
+#     options = [e for e in options if not only or e.value in only]
 
-    return dynoselect(
-        options=options,
-        default_option=default_option,
-        placeholder=placeholder,
-        search_placeholder=search_placeholder,
-        size=size,
-        weight=weight,
-        radius=radius,
-        height=height,
-        padding=padding,
-        indent=indent,
-        align=align,
-        on_select=on_select,
-        icon=icon,
-        content_props=content_props,
-        root_props=root_props
-    )
+#     return dynoselect(
+#         options=options,
+#         default_option=default_option,
+#         placeholder=placeholder,
+#         search_placeholder=search_placeholder,
+#         size=size,
+#         weight=weight,
+#         radius=radius,
+#         height=height,
+#         padding=padding,
+#         indent=indent,
+#         align=align,
+#         on_select=on_select,
+#         icon=icon,
+#         content_props=content_props,
+#         root_props=root_props
+#     )
 
 
 

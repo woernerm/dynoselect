@@ -5,6 +5,8 @@ import io
 import json
 from itertools import chain
 
+import reflex as rx
+
 TIMEZONE_OPTION_PATH = (Path(__file__).parent / "timezones.tar.gz").absolute()
 """Path to the timezone options archive."""
 
