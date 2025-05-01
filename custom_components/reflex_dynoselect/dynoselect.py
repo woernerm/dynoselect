@@ -161,7 +161,7 @@ class Dynoselect(rx.ComponentState):
             return rx.cond(cond, button, rx.fragment())
         
         on_open_auto_focus = content_props.pop(
-            "on_open_auto_focus", lambda *a: [cls.set_search_phrase("")]
+            "on_open_auto_focus", lambda: [cls.set_search_phrase("")]
         )
         
         return rx.popover.root(
